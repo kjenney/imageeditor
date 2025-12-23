@@ -1,1 +1,123 @@
-# imageeditor
+# Image Editor
+
+A modern, web-based image editor built with React and TypeScript.
+
+## Features
+
+- **Modern Tech Stack**: Built with React 18, TypeScript, and Vite
+- **Layer Support**: Work with multiple image layers
+- **Extensible**: Modular architecture for easy feature additions
+- **Fast**: Optimized build process with code splitting
+
+## Prerequisites
+
+- Node.js 18.0.0 or higher
+- npm 9.0.0 or higher
+
+## Quick Start
+
+```bash
+# Clone the repository
+git clone https://github.com/kjenney/imageeditor.git
+cd imageeditor
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+```
+
+The application will be available at `http://localhost:3000`.
+
+## Available Scripts
+
+| Script | Description |
+|--------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Build for production |
+| `npm run preview` | Preview production build |
+| `npm run test` | Run tests in watch mode |
+| `npm run test:coverage` | Run tests with coverage |
+| `npm run lint` | Check for linting errors |
+| `npm run lint:fix` | Fix linting errors |
+| `npm run format` | Format code with Prettier |
+| `npm run type-check` | Run TypeScript type checking |
+
+## Project Structure
+
+```
+imageeditor/
+├── .github/              # GitHub configuration
+│   ├── workflows/        # CI/CD workflows
+│   └── ISSUE_TEMPLATE/   # Issue templates
+├── docs/                 # Documentation
+├── public/               # Static assets
+├── src/
+│   ├── assets/          # Images, fonts, etc.
+│   ├── components/      # React components
+│   ├── hooks/           # Custom React hooks
+│   ├── styles/          # CSS styles
+│   ├── types/           # TypeScript types
+│   ├── utils/           # Utility functions
+│   ├── App.tsx          # Main App component
+│   └── main.tsx         # Application entry point
+├── tests/
+│   ├── unit/            # Unit tests
+│   └── integration/     # Integration tests
+├── package.json
+├── tsconfig.json
+├── vite.config.ts
+└── README.md
+```
+
+## Development
+
+### Code Style
+
+This project uses:
+- **ESLint** for code linting
+- **Prettier** for code formatting
+- **TypeScript** for type safety
+
+Pre-commit hooks are configured with Husky to ensure code quality.
+
+### Testing
+
+Tests are written using Vitest and React Testing Library:
+
+```bash
+# Run tests in watch mode
+npm run test
+
+# Run tests with coverage
+npm run test:coverage
+
+# Run tests with UI
+npm run test:ui
+```
+
+### Building for Production
+
+```bash
+npm run build
+```
+
+The production build will be output to the `dist/` directory.
+
+## CI/CD
+
+This project uses GitHub Actions for continuous integration:
+
+- **Linting**: ESLint and Prettier checks
+- **Type Checking**: TypeScript compilation
+- **Testing**: Unit and integration tests with coverage
+- **Building**: Production build verification
+
+## Contributing
+
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
