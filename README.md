@@ -114,6 +114,29 @@ This project uses GitHub Actions for continuous integration:
 - **Testing**: Unit and integration tests with coverage
 - **Building**: Production build verification
 
+## Deployment
+
+### AWS EC2 Deployment with Terraform
+
+This project includes Terraform configuration for deploying to AWS EC2. The infrastructure provisions a complete environment including VPC, security groups, and an EC2 instance running nginx.
+
+**Quick Deploy:**
+
+```bash
+cd terraform
+cp terraform.tfvars.example terraform.tfvars
+terraform init
+terraform apply
+```
+
+After deployment, access your application at the URL provided in the output:
+
+```bash
+terraform output app_url
+```
+
+For detailed deployment instructions, configuration options, and architecture overview, see the [Terraform Documentation](terraform/README.md).
+
 ## Contributing
 
 Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
