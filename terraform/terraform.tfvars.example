@@ -1,0 +1,27 @@
+# AWS Region
+aws_region = "us-east-1"
+
+# Environment (dev, staging, prod)
+environment = "dev"
+
+# Project name
+project_name = "imageeditor"
+
+# VPC CIDR
+vpc_cidr = "10.0.0.0/16"
+
+# Public subnet CIDRs
+public_subnet_cidrs = ["10.0.1.0/24", "10.0.2.0/24"]
+
+# EC2 instance type
+instance_type = "t3.micro"
+
+# SSH key pair name (optional - leave as null if not using SSH)
+key_name = null
+
+# CIDR blocks allowed to SSH (only needed if key_name is set)
+# Example: ["1.2.3.4/32", "10.0.0.0/8"]
+allowed_ssh_cidrs = []
+
+# Application port (default: 80)
+app_port = 80
