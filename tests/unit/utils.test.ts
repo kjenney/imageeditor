@@ -35,7 +35,7 @@ describe('clamp', () => {
 });
 
 describe('debounce', () => {
-  it('should debounce function calls', () => {
+  it('should debounce function calls', async () => {
     vi.useFakeTimers();
     const fn = vi.fn();
     const debounced = debounce(fn, 100);
