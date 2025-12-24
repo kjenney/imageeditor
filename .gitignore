@@ -66,6 +66,9 @@ docs/api/
 # Husky
 .husky/_
 
+# MkDocs
+site/
+
 # Terraform
 *.tfstate
 *.tfstate.*

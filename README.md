@@ -68,6 +68,7 @@ imageeditor/
 ├── tests/
 │   ├── unit/            # Unit tests
 │   └── integration/     # Integration tests
+├── mkdocs.yml            # Documentation configuration
 ├── package.json
 ├── tsconfig.json
 ├── vite.config.ts
@@ -110,40 +111,24 @@ The production build will be output to the `dist/` directory.
 
 ## Documentation
 
-API documentation is generated using [TypeDoc](https://typedoc.org/).
+Full documentation is available at **[https://kjenney.github.io/imageeditor/](https://kjenney.github.io/imageeditor/)**
 
-### Generating Documentation
+### Building Documentation Locally
 
-```bash
-# Generate API documentation
-npm run docs
-
-# Generate and watch for changes
-npm run docs:watch
-
-# Generate and serve locally
-npm run docs:serve
-```
-
-Documentation will be generated in the `docs/api/` directory.
-
-### Using Make
-
-A Makefile is provided for common tasks:
+Documentation is built with [MkDocs](https://www.mkdocs.org/) and the Material theme.
 
 ```bash
-# Show available targets
-make help
+# Install MkDocs and dependencies
+pip install -r requirements-docs.txt
 
-# Generate documentation
-make docs
+# Serve documentation locally
+mkdocs serve
 
-# Generate and serve docs locally
-make docs-serve
-
-# Run full pipeline (install, lint, test, build, docs)
-make all
+# Build static site
+mkdocs build
 ```
+
+Documentation source files are in the `docs/` directory.
 
 ## CI/CD
 
@@ -153,7 +138,7 @@ This project uses GitHub Actions for continuous integration:
 - **Type Checking**: TypeScript compilation
 - **Testing**: Unit and integration tests with coverage
 - **Building**: Production build verification
-- **Documentation**: API documentation generation with TypeDoc
+- **Documentation**: Automatic deployment to GitHub Pages
 
 ## Deployment
 
