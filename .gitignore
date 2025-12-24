@@ -63,6 +63,9 @@ lerna-debug.log*
 # Husky
 .husky/_
 
+# MkDocs
+site/
+
 # Terraform
 *.tfstate
 *.tfstate.*
