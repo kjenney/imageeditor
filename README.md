@@ -43,6 +43,9 @@ The application will be available at `http://localhost:3000`.
 | `npm run lint:fix` | Fix linting errors |
 | `npm run format` | Format code with Prettier |
 | `npm run type-check` | Run TypeScript type checking |
+| `npm run docs` | Generate API documentation |
+| `npm run docs:watch` | Generate docs and watch for changes |
+| `npm run docs:serve` | Generate and serve docs locally |
 
 ## Project Structure
 
