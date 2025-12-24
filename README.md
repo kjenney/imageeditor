@@ -43,6 +43,9 @@ The application will be available at `http://localhost:3000`.
 | `npm run lint:fix` | Fix linting errors |
 | `npm run format` | Format code with Prettier |
 | `npm run type-check` | Run TypeScript type checking |
+| `npm run docs` | Generate API documentation |
+| `npm run docs:watch` | Generate docs and watch for changes |
+| `npm run docs:serve` | Generate and serve docs locally |
 
 ## Project Structure
 
@@ -105,6 +108,43 @@ npm run build
 
 The production build will be output to the `dist/` directory.
 
+## Documentation
+
+API documentation is generated using [TypeDoc](https://typedoc.org/).
+
+### Generating Documentation
+
+```bash
+# Generate API documentation
+npm run docs
+
+# Generate and watch for changes
+npm run docs:watch
+
+# Generate and serve locally
+npm run docs:serve
+```
+
+Documentation will be generated in the `docs/api/` directory.
+
+### Using Make
+
+A Makefile is provided for common tasks:
+
+```bash
+# Show available targets
+make help
+
+# Generate documentation
+make docs
+
+# Generate and serve docs locally
+make docs-serve
+
+# Run full pipeline (install, lint, test, build, docs)
+make all
+```
+
 ## CI/CD
 
 This project uses GitHub Actions for continuous integration:
@@ -113,6 +153,7 @@ This project uses GitHub Actions for continuous integration:
 - **Type Checking**: TypeScript compilation
 - **Testing**: Unit and integration tests with coverage
 - **Building**: Production build verification
+- **Documentation**: API documentation generation with TypeDoc
 
 ## Deployment
 
