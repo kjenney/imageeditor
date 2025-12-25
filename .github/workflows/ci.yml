@@ -125,5 +125,5 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: docs
-          path: docs/api/
+          path: api-docs/
           retention-days: 7
