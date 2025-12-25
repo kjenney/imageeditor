@@ -51,3 +51,28 @@ variable "app_port" {
   type        = number
   default     = 80
 }
+
+# Qwen Model Configuration
+variable "enable_qwen" {
+  description = "Enable Qwen model support via Ollama"
+  type        = bool
+  default     = false
+}
+
+variable "qwen_model" {
+  description = "Qwen model to install (e.g., qwen2.5:0.5b, qwen2.5:1.5b, qwen2.5:3b, qwen2.5:7b, qwen2.5:14b, qwen2.5:32b)"
+  type        = string
+  default     = "qwen2.5:7b"
+}
+
+variable "ollama_port" {
+  description = "Port for Ollama API server"
+  type        = number
+  default     = 11434
+}
+
+variable "qwen_storage_size" {
+  description = "EBS volume size in GB when Qwen is enabled (larger models need more storage)"
+  type        = number
+  default     = 50
+}

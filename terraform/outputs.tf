@@ -32,3 +32,14 @@ output "security_group_id" {
   description = "ID of the application security group"
   value       = aws_security_group.app.id
 }
+
+# Qwen/Ollama outputs (conditional)
+output "ollama_api_url" {
+  description = "URL for the Ollama API (when Qwen is enabled)"
+  value       = var.enable_qwen ? "http://${aws_eip.app.public_ip}:${var.ollama_port}" : null
+}
+
+output "qwen_model" {
+  description = "Qwen model installed (when Qwen is enabled)"
+  value       = var.enable_qwen ? var.qwen_model : null
+}

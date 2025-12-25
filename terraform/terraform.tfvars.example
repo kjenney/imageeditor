@@ -25,3 +25,28 @@ allowed_ssh_cidrs = []
 
 # Application port (default: 80)
 app_port = 80
+
+# ========================================
+# Qwen Model Configuration (Optional)
+# ========================================
+
+# Enable Qwen model support via Ollama
+# When enabled, Ollama will be installed and the specified Qwen model will be downloaded
+enable_qwen = false
+
+# Qwen model to install
+# Available models:
+#   - qwen2.5:0.5b  (~400MB, minimal resources)
+#   - qwen2.5:1.5b  (~1GB, light usage)
+#   - qwen2.5:3b    (~2GB, moderate usage)
+#   - qwen2.5:7b    (~4.5GB, recommended for most use cases)
+#   - qwen2.5:14b   (~9GB, high performance)
+#   - qwen2.5:32b   (~19GB, requires significant resources)
+qwen_model = "qwen2.5:7b"
+
+# Port for Ollama API server
+ollama_port = 11434
+
+# EBS volume size when Qwen is enabled (in GB)
+# Larger models require more storage
+qwen_storage_size = 50

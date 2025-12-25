@@ -63,14 +63,17 @@ resource "aws_instance" "app" {
   key_name               = var.key_name
 
   root_block_device {
-    volume_size           = 20
+    volume_size           = var.enable_qwen ? var.qwen_storage_size : 20
     volume_type           = "gp3"
     encrypted             = true
     delete_on_termination = true
   }
 
   user_data = base64encode(templatefile("${path.module}/user_data.sh", {
-    app_port = var.app_port
+    app_port     = var.app_port
+    enable_qwen  = var.enable_qwen
+    qwen_model   = var.qwen_model
+    ollama_port  = var.ollama_port
   }))
 
   tags = {

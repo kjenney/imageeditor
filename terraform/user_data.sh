@@ -6,6 +6,11 @@ exec > >(tee /var/log/user-data.log) 2>&1
 
 echo "Starting imageeditor setup..."
 
+# Template variables
+ENABLE_QWEN="${enable_qwen}"
+QWEN_MODEL="${qwen_model}"
+OLLAMA_PORT="${ollama_port}"
+
 # Update system packages
 dnf update -y
 
@@ -17,6 +22,9 @@ dnf install -y nginx
 
 # Install git
 dnf install -y git
+
+# Install curl for Ollama installation
+dnf install -y curl
 
 # Create application directory
 mkdir -p /var/www/imageeditor
@@ -74,3 +82,50 @@ systemctl enable nginx
 systemctl start nginx
 
 echo "imageeditor setup complete!"
+
+# ========================================
+# Qwen Model Setup (via Ollama)
+# ========================================
+if [ "$ENABLE_QWEN" = "true" ]; then
+    echo "Setting up Qwen model support..."
+
+    # Install Ollama
+    echo "Installing Ollama..."
+    curl -fsSL https://ollama.com/install.sh | sh
+
+    # Create ollama systemd service with custom port
+    cat > /etc/systemd/system/ollama.service << EOF
+[Unit]
+Description=Ollama Service
+After=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/ollama serve
+Environment="OLLAMA_HOST=0.0.0.0:$OLLAMA_PORT"
+User=root
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target
+EOF
+
+    # Reload systemd and start ollama
+    systemctl daemon-reload
+    systemctl enable ollama
+    systemctl start ollama
+
+    # Wait for Ollama to be ready
+    echo "Waiting for Ollama to start..."
+    sleep 10
+
+    # Pull the Qwen model
+    echo "Pulling Qwen model: $QWEN_MODEL..."
+    ollama pull "$QWEN_MODEL"
+
+    echo "Qwen model setup complete!"
+    echo "Ollama API available at http://0.0.0.0:$OLLAMA_PORT"
+    echo "Model: $QWEN_MODEL"
+fi
+
+echo "All setup complete!"

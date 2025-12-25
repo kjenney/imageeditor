@@ -34,6 +34,18 @@ resource "aws_security_group" "app" {
     }
   }
 
+  # Ollama API access (conditional - when Qwen is enabled)
+  dynamic "ingress" {
+    for_each = var.enable_qwen ? [1] : []
+    content {
+      description = "Ollama API"
+      from_port   = var.ollama_port
+      to_port     = var.ollama_port
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
+  }
+
   # Allow all outbound traffic
   egress {
     description = "Allow all outbound"

@@ -8,6 +8,7 @@ This directory contains Terraform configuration to deploy the Image Editor appli
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
 - [Configuration Options](#configuration-options)
+- [Qwen Model Support](#qwen-model-support)
 - [Outputs](#outputs)
 - [SSH Access](#ssh-access)
 - [Updating the Application](#updating-the-application)
@@ -68,10 +69,11 @@ The infrastructure deploys the Image Editor application on AWS with the followin
 | **VPC** | Dedicated Virtual Private Cloud with DNS hostnames enabled |
 | **Public Subnets** | Two subnets across different availability zones for high availability |
 | **Internet Gateway** | Enables internet access for resources in public subnets |
-| **Security Groups** | Firewall rules for HTTP (80), HTTPS (443), and optional SSH (22) |
+| **Security Groups** | Firewall rules for HTTP (80), HTTPS (443), optional SSH (22), and Ollama API (11434) |
 | **EC2 Instance** | Amazon Linux 2023 running nginx to serve the application |
 | **Elastic IP** | Static public IP address for consistent access |
 | **IAM Role** | Instance profile with SSM access for secure management |
+| **Ollama** | (Optional) LLM inference server for running Qwen models |
 
 ## Prerequisites
 
@@ -140,6 +142,10 @@ aws sts get-caller-identity
 | `key_name` | SSH key pair name (optional) | `null` | No |
 | `allowed_ssh_cidrs` | CIDR blocks allowed to SSH | `[]` | No |
 | `app_port` | Port the application runs on | `80` | No |
+| `enable_qwen` | Enable Qwen model support via Ollama | `false` | No |
+| `qwen_model` | Qwen model to install | `qwen2.5:7b` | No |
+| `ollama_port` | Port for Ollama API server | `11434` | No |
+| `qwen_storage_size` | EBS volume size (GB) when Qwen enabled | `50` | No |
 
 ### Environment Examples
 
@@ -155,6 +161,92 @@ environment   = "prod"
 instance_type = "t3.small"
 ```
 
+## Qwen Model Support
+
+This infrastructure supports running [Qwen](https://github.com/QwenLM/Qwen2.5) language models via [Ollama](https://ollama.com/). When enabled, Ollama is installed and configured as a systemd service, and the specified Qwen model is automatically downloaded.
+
+### Enabling Qwen Support
+
+Add the following to your `terraform.tfvars`:
+
+```hcl
+enable_qwen   = true
+qwen_model    = "qwen2.5:7b"
+instance_type = "t3.xlarge"  # Larger instance needed for LLM inference
+```
+
+### Available Qwen Models
+
+| Model | Size | RAM Required | Recommended Instance |
+|-------|------|--------------|---------------------|
+| `qwen2.5:0.5b` | ~400MB | 2GB | t3.small |
+| `qwen2.5:1.5b` | ~1GB | 4GB | t3.medium |
+| `qwen2.5:3b` | ~2GB | 6GB | t3.large |
+| `qwen2.5:7b` | ~4.5GB | 8GB | t3.xlarge |
+| `qwen2.5:14b` | ~9GB | 16GB | t3.2xlarge |
+| `qwen2.5:32b` | ~19GB | 32GB | r5.xlarge or larger |
+
+### Using the Ollama API
+
+Once deployed, the Ollama API is available at the endpoint shown in outputs:
+
+```bash
+# Get the Ollama API URL
+terraform output ollama_api_url
+```
+
+**Generate text:**
+```bash
+curl http://<public-ip>:11434/api/generate -d '{
+  "model": "qwen2.5:7b",
+  "prompt": "Explain quantum computing in simple terms"
+}'
+```
+
+**Chat completion:**
+```bash
+curl http://<public-ip>:11434/api/chat -d '{
+  "model": "qwen2.5:7b",
+  "messages": [
+    {"role": "user", "content": "Hello, how are you?"}
+  ]
+}'
+```
+
+**List available models:**
+```bash
+curl http://<public-ip>:11434/api/tags
+```
+
+### Managing Qwen Models
+
+Connect to the instance to manage models:
+
+```bash
+# Connect via SSM
+aws ssm start-session --target $(terraform output -raw instance_id)
+
+# List installed models
+ollama list
+
+# Pull additional models
+sudo ollama pull qwen2.5:14b
+
+# Remove a model
+sudo ollama rm qwen2.5:7b
+
+# View Ollama logs
+sudo journalctl -u ollama -f
+```
+
+### Security Considerations for Qwen
+
+When `enable_qwen` is set to `true`:
+- Port 11434 (or custom `ollama_port`) is opened to the internet
+- Consider restricting access using `allowed_ollama_cidrs` or a VPN
+- The Ollama API does not have built-in authentication
+- For production, consider placing behind an API gateway with auth
+
 ## Outputs
 
 After applying the configuration, Terraform provides these outputs:
@@ -168,6 +260,8 @@ After applying the configuration, Terraform provides these outputs:
 | `instance_public_ip` | Elastic IP of the instance |
 | `app_url` | URL to access the application |
 | `security_group_id` | ID of the security group |
+| `ollama_api_url` | URL for Ollama API (when Qwen enabled) |
+| `qwen_model` | Installed Qwen model (when Qwen enabled) |
 
 **View all outputs:**
 ```bash
@@ -346,6 +440,8 @@ terraform force-unlock <LOCK_ID>
 
 ### Monthly Costs (us-east-1, on-demand pricing)
 
+**Standard Deployment (without Qwen):**
+
 | Resource | Configuration | Estimated Cost |
 |----------|---------------|----------------|
 | EC2 Instance | t3.micro | ~$7.59/month |
@@ -354,12 +450,23 @@ terraform force-unlock <LOCK_ID>
 | Data Transfer | Variable | ~$0.09/GB outbound |
 | **Total** | | **~$9-15/month** |
 
+**With Qwen Model Support:**
+
+| Resource | Configuration | Estimated Cost |
+|----------|---------------|----------------|
+| EC2 Instance | t3.xlarge (for qwen2.5:7b) | ~$121/month |
+| EBS Storage | 50GB gp3 | ~$4/month |
+| Elastic IP | Attached to running instance | Free |
+| Data Transfer | Variable | ~$0.09/GB outbound |
+| **Total** | | **~$125-135/month** |
+
 ### Cost Optimization Tips
 
 1. **Use t3.micro** for development (Free Tier eligible for 12 months)
 2. **Consider Reserved Instances** for production (up to 72% savings)
 3. **Use Spot Instances** for non-critical workloads
 4. **Stop instances** when not in use
+5. **For Qwen:** Use smaller models (qwen2.5:0.5b or qwen2.5:1.5b) on smaller instances for testing
 
 ## Destroying Resources
 
