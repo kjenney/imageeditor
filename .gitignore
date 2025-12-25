@@ -56,7 +56,7 @@ lerna-debug.log*
 *.tsbuildinfo
 
 # Generated documentation
-docs/api/
+api-docs/
 
 # Misc
 .cache/

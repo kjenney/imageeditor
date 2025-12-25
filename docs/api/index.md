@@ -1,115 +1,45 @@
 # API Reference
 
-This section documents the public APIs and interfaces of Image Editor.
+The Image Editor API documentation is generated using [TypeDoc](https://typedoc.org/) and provides comprehensive documentation for all public interfaces, functions, and components.
 
-## Components
+## Generating API Documentation
 
-### App
+To generate the API documentation locally:
 
-The main application component.
-
-```typescript
-import App from './App';
-
-// Usage
-<App />
+```bash
+npm run docs
 ```
 
-## Hooks
+This will generate documentation in the `api-docs/` directory.
 
-Custom React hooks for common functionality.
+## Viewing Documentation
 
-### useImageEditor (Planned)
+After generating, you can serve the documentation locally:
 
-Hook for accessing the image editor context.
-
-```typescript
-const { canvas, layers, tools } = useImageEditor();
+```bash
+npm run docs:serve
 ```
 
-## Utilities
+## API Overview
 
-### Image Utilities
+The Image Editor exposes the following main modules:
 
-Utility functions for image manipulation.
+### Components
 
-```typescript
-import { loadImage, saveImage } from './utils';
+React components for the image editor interface.
 
-// Load an image
-const image = await loadImage(file);
+### Utils
 
-// Save/export image
-const blob = await saveImage(canvas, 'png');
-```
+Utility functions for image manipulation and processing:
 
-## Types
+- **Image Processing**: Functions for manipulating image data
+- **Canvas Operations**: Helpers for canvas-based rendering
+- **File Handling**: Utilities for loading and saving images
 
-### Core Types
+### Types
 
-```typescript
-// Layer definition
-interface Layer {
-  id: string;
-  name: string;
-  visible: boolean;
-  opacity: number;
-  data: ImageData;
-}
+TypeScript interfaces and types used throughout the application.
 
-// Tool definition
-interface Tool {
-  id: string;
-  name: string;
-  icon: string;
-  cursor: string;
-  onActivate: () => void;
-  onDeactivate: () => void;
-}
+## Development
 
-// Canvas state
-interface CanvasState {
-  width: number;
-  height: number;
-  zoom: number;
-  pan: { x: number; y: number };
-}
-```
-
-## Events
-
-### Canvas Events
-
-```typescript
-// Layer events
-onLayerAdd: (layer: Layer) => void
-onLayerRemove: (layerId: string) => void
-onLayerUpdate: (layer: Layer) => void
-
-// Tool events
-onToolChange: (tool: Tool) => void
-
-// Canvas events
-onZoomChange: (zoom: number) => void
-onPanChange: (pan: { x: number; y: number }) => void
-```
-
-## Configuration
-
-### Editor Options
-
-```typescript
-interface EditorOptions {
-  width?: number;
-  height?: number;
-  backgroundColor?: string;
-  gridEnabled?: boolean;
-  gridSize?: number;
-  snapToGrid?: boolean;
-}
-```
-
----
-
-!!! info "Work in Progress"
-    This API reference is being actively developed. More documentation will be added as features are implemented.
+For detailed implementation information, generate the full API documentation using `npm run docs`.
