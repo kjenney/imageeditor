@@ -1,0 +1,73 @@
+site_name: Image Editor Documentation
+site_description: Documentation for the Image Editor web application
+site_author: Ken Jenney
+site_url: https://kjenney.github.io/imageeditor/
+
+repo_name: kjenney/imageeditor
+repo_url: https://github.com/kjenney/imageeditor
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+  icon:
+    repo: fontawesome/brands/github
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quick-start.md
+  - User Guide:
+      - Overview: user-guide/overview.md
+      - Features: user-guide/features.md
+  - Development:
+      - Setup: development/setup.md
+      - Architecture: development/architecture.md
+      - Testing: development/testing.md
+      - Contributing: development/contributing.md
+  - Deployment:
+      - AWS EC2: deployment/aws-ec2.md
+  - API Reference: api/index.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/kjenney/imageeditor

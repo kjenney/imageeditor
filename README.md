@@ -43,6 +43,9 @@ The application will be available at `http://localhost:3000`.
 | `npm run lint:fix` | Fix linting errors |
 | `npm run format` | Format code with Prettier |
 | `npm run type-check` | Run TypeScript type checking |
+| `npm run docs` | Generate API documentation |
+| `npm run docs:watch` | Generate docs and watch for changes |
+| `npm run docs:serve` | Generate and serve docs locally |
 
 ## Project Structure
 
@@ -65,6 +68,7 @@ imageeditor/
 ├── tests/
 │   ├── unit/            # Unit tests
 │   └── integration/     # Integration tests
+├── mkdocs.yml            # Documentation configuration
 ├── package.json
 ├── tsconfig.json
 ├── vite.config.ts
@@ -105,6 +109,27 @@ npm run build
 
 The production build will be output to the `dist/` directory.
 
+## Documentation
+
+Full documentation is available at **[https://kjenney.github.io/imageeditor/](https://kjenney.github.io/imageeditor/)**
+
+### Building Documentation Locally
+
+Documentation is built with [MkDocs](https://www.mkdocs.org/) and the Material theme.
+
+```bash
+# Install MkDocs and dependencies
+pip install -r requirements-docs.txt
+
+# Serve documentation locally
+mkdocs serve
+
+# Build static site
+mkdocs build
+```
+
+Documentation source files are in the `docs/` directory.
+
 ## CI/CD
 
 This project uses GitHub Actions for continuous integration:
@@ -113,6 +138,7 @@ This project uses GitHub Actions for continuous integration:
 - **Type Checking**: TypeScript compilation
 - **Testing**: Unit and integration tests with coverage
 - **Building**: Production build verification
+- **Documentation**: Automatic deployment to GitHub Pages
 
 ## Deployment
 

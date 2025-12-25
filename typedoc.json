@@ -1,0 +1,27 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src"],
+  "entryPointStrategy": "expand",
+  "out": "api-docs",
+  "name": "Image Editor API Documentation",
+  "readme": "README.md",
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeExternals": true,
+  "exclude": ["**/*.test.ts", "**/*.test.tsx", "**/tests/**"],
+  "includeVersion": true,
+  "categorizeByGroup": true,
+  "categoryOrder": ["Components", "Hooks", "Utils", "Types", "*"],
+  "navigationLinks": {
+    "GitHub": "https://github.com/kjenney/imageeditor",
+    "Home": "/"
+  },
+  "plugin": [],
+  "theme": "default",
+  "cleanOutputDir": true,
+  "validation": {
+    "notExported": true,
+    "invalidLink": true,
+    "notDocumented": false
+  }
+}

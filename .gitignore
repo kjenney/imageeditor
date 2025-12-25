@@ -55,6 +55,9 @@ lerna-debug.log*
 # TypeScript
 *.tsbuildinfo
 
+# Generated documentation
+api-docs/
+
 # Misc
 .cache/
 .temp/
@@ -62,6 +65,9 @@ lerna-debug.log*
 
 # Husky
 .husky/_
+
+# MkDocs
+site/
 
 # Terraform
 *.tfstate
