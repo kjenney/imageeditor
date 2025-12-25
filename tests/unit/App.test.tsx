@@ -8,8 +8,14 @@ describe('App', () => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Image Editor');
   });
 
-  it('should render the welcome message', () => {
+  it('should render the Konva subtitle', () => {
     render(<App />);
-    expect(screen.getByText(/Infrastructure foundation is ready/i)).toBeInTheDocument();
+    expect(screen.getByText(/Powered by Konva/i)).toBeInTheDocument();
+  });
+
+  it('should render the image editor component', () => {
+    render(<App />);
+    expect(screen.getByText(/Tools/i)).toBeInTheDocument();
+    expect(screen.getByText(/Brush Settings/i)).toBeInTheDocument();
   });
 });
