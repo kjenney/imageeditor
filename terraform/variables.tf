@@ -4,6 +4,12 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
+variable "aws_profile" {
+  description = "AWS CLI profile to use for authentication (optional)"
+  type        = string
+  default     = null
+}
+
 variable "environment" {
   description = "Environment name (e.g., dev, staging, prod)"
   type        = string
@@ -34,18 +40,6 @@ variable "instance_type" {
   default     = "t3.micro"
 }
 
-variable "key_name" {
-  description = "Name of the SSH key pair to use for EC2 access"
-  type        = string
-  default     = null
-}
-
-variable "allowed_ssh_cidrs" {
-  description = "CIDR blocks allowed to SSH into the instance"
-  type        = list(string)
-  default     = []
-}
-
 variable "app_port" {
   description = "Port the application runs on"
   type        = number
@@ -56,7 +50,7 @@ variable "app_port" {
 variable "enable_qwen" {
   description = "Enable Qwen model support via Ollama"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "qwen_model" {

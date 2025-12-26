@@ -23,9 +23,6 @@ dnf install -y nginx
 # Install git
 dnf install -y git
 
-# Install curl for Ollama installation
-dnf install -y curl
-
 # Create application directory
 mkdir -p /var/www/imageeditor
 cd /var/www/imageeditor

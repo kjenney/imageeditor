@@ -5,7 +5,7 @@ data "aws_ami" "amazon_linux_2023" {
 
   filter {
     name   = "name"
-    values = ["al2023-ami-*-x86_64"]
+    values = ["al2023-ami-2023*-x86_64"]
   }
 
   filter {
@@ -47,7 +47,7 @@ resource "aws_iam_instance_profile" "ec2_profile" {
   role = aws_iam_role.ec2_role.name
 }
 
-# Attach SSM policy for Session Manager access (optional but recommended)
+# Attach SSM policy for Session Manager access (primary access method - no SSH required)
 resource "aws_iam_role_policy_attachment" "ssm_policy" {
   role       = aws_iam_role.ec2_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
@@ -60,20 +60,20 @@ resource "aws_instance" "app" {
   subnet_id              = aws_subnet.public[0].id
   vpc_security_group_ids = [aws_security_group.app.id]
   iam_instance_profile   = aws_iam_instance_profile.ec2_profile.name
-  key_name               = var.key_name
+  # Access via AWS Systems Manager Session Manager - no SSH key required
 
   root_block_device {
-    volume_size           = var.enable_qwen ? var.qwen_storage_size : 20
+    volume_size           = var.enable_qwen ? var.qwen_storage_size : 30
     volume_type           = "gp3"
     encrypted             = true
     delete_on_termination = true
   }
 
   user_data = base64encode(templatefile("${path.module}/user_data.sh", {
-    app_port     = var.app_port
-    enable_qwen  = var.enable_qwen
-    qwen_model   = var.qwen_model
-    ollama_port  = var.ollama_port
+    app_port    = var.app_port
+    enable_qwen = var.enable_qwen
+    qwen_model  = var.qwen_model
+    ollama_port = var.ollama_port
   }))
 
   tags = {

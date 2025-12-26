@@ -29,9 +29,9 @@ cp terraform.tfvars.example terraform.tfvars
 Edit `terraform.tfvars` with your settings:
 
 ```hcl
-aws_region     = "us-east-1"
-instance_type  = "t3.micro"
-ssh_key_name   = "your-key-pair-name"
+aws_region    = "us-east-1"
+instance_type = "t3.micro"
+environment   = "dev"
 ```
 
 ### 2. Initialize Terraform
@@ -62,14 +62,24 @@ Get the application URL:
 terraform output app_url
 ```
 
+### 6. Connect to Instance (Optional)
+
+Connect via AWS Systems Manager Session Manager:
+
+```bash
+terraform output ssm_session_command
+```
+
+Or use the AWS Console: EC2 → Select instance → Connect → Session Manager tab.
+
 ## Configuration Options
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `aws_region` | AWS region | `us-east-1` |
 | `instance_type` | EC2 instance type | `t3.micro` |
-| `ssh_key_name` | SSH key pair name | Required |
-| `environment` | Environment name | `production` |
+| `environment` | Environment name | `dev` |
+| `enable_qwen` | Enable Qwen AI model | `false` |
 
 ## Architecture
 
@@ -98,11 +108,19 @@ terraform output app_url
 
 - HTTP (80) - Open to all
 - HTTPS (443) - Open to all
-- SSH (22) - Restricted to your IP (configure in tfvars)
+
+### Instance Access
+
+Instance access is provided via AWS Systems Manager Session Manager, which offers:
+
+- No inbound ports required (no SSH port 22 exposed)
+- IAM-based authentication and authorization
+- Session logging and auditing capabilities
+- No need to manage SSH keys
 
 ### Best Practices
 
-- Use a bastion host for SSH access in production
+- Use IAM policies to control Session Manager access
 - Enable AWS WAF for additional protection
 - Configure SSL certificates via ACM
 
@@ -135,11 +153,12 @@ terraform destroy
 
 ## Troubleshooting
 
-### Cannot SSH to Instance
+### Cannot Connect via Session Manager
 
-- Check security group SSH rule
-- Verify key pair name is correct
-- Ensure instance has public IP
+- Ensure the SSM agent is running on the instance
+- Verify IAM permissions include `ssm:StartSession`
+- Check that the instance has internet access (required for SSM)
+- Install the Session Manager plugin for AWS CLI: [Installation Guide](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html)
 
 ### Application Not Loading
 

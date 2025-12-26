@@ -1,4 +1,5 @@
 # Security Group for EC2 Instance
+# Note: SSH access is not required - use AWS Systems Manager Session Manager instead
 resource "aws_security_group" "app" {
   name        = "${var.project_name}-app-sg-${var.environment}"
   description = "Security group for imageeditor application"
@@ -20,18 +21,6 @@ resource "aws_security_group" "app" {
     to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # SSH access (conditional)
-  dynamic "ingress" {
-    for_each = length(var.allowed_ssh_cidrs) > 0 ? [1] : []
-    content {
-      description = "SSH"
-      from_port   = 22
-      to_port     = 22
-      protocol    = "tcp"
-      cidr_blocks = var.allowed_ssh_cidrs
-    }
   }
 
   # Ollama API access (conditional - when Qwen is enabled)

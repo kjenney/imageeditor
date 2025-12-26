@@ -33,6 +33,11 @@ output "security_group_id" {
   value       = aws_security_group.app.id
 }
 
+output "ssm_session_command" {
+  description = "AWS CLI command to connect via Session Manager"
+  value       = "aws ssm start-session --target ${aws_instance.app.id}"
+}
+
 # Qwen/Ollama outputs (conditional)
 output "ollama_api_url" {
   description = "URL for the Ollama API (when Qwen is enabled)"
