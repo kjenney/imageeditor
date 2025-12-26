@@ -72,7 +72,11 @@ export function ImageEditor({ width = 800, height = 600 }: ImageEditorProps) {
           strokeWidth: currentTool === 'brush' ? brushSize * 2 : brushSize,
         };
         setLines((prev) => [...prev, newLine]);
-      } else if (currentTool === 'rectangle' || currentTool === 'circle' || currentTool === 'line') {
+      } else if (
+        currentTool === 'rectangle' ||
+        currentTool === 'circle' ||
+        currentTool === 'line'
+      ) {
         const newShape: ShapeConfig = {
           id: generateId(),
           type: currentTool === 'line' ? 'line' : currentTool,
@@ -244,52 +248,49 @@ export function ImageEditor({ width = 800, height = 600 }: ImageEditorProps) {
     }
   }, []);
 
-  const handleAIEdit = useCallback(
-    async (prompt: string, options: AIEditOptions) => {
-      if (!stageRef.current) return;
+  const handleAIEdit = useCallback(async (prompt: string, options: AIEditOptions) => {
+    if (!stageRef.current) return;
 
-      setIsAIProcessing(true);
-      setAiError(null);
+    setIsAIProcessing(true);
+    setAiError(null);
 
-      try {
-        // Export current canvas to blob
-        const dataURL = stageRef.current.toDataURL({ pixelRatio: 1 });
-        const base64Data = dataURL.split(',')[1] || '';
+    try {
+      // Export current canvas to blob
+      const dataURL = stageRef.current.toDataURL({ pixelRatio: 1 });
+      const base64Data = dataURL.split(',')[1] || '';
 
-        if (!base64Data) {
-          throw new Error('Failed to export canvas image');
-        }
-
-        // Send to AI API
-        const resultBase64 = await diffusionApi.editImageBase64(base64Data, {
-          prompt,
-          negativePrompt: options.negativePrompt,
-          numInferenceSteps: options.numInferenceSteps,
-          seed: options.seed,
-        });
-
-        // Load the result as new image
-        const img = new window.Image();
-        img.onload = () => {
-          // Clear existing content and set new image
-          setShapes([]);
-          setLines([]);
-          setLoadedImage(img);
-          setSelectedId(null);
-        };
-        img.onerror = () => {
-          setAiError('Failed to load the edited image');
-        };
-        img.src = `data:image/png;base64,${resultBase64}`;
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error occurred';
-        setAiError(message);
-      } finally {
-        setIsAIProcessing(false);
+      if (!base64Data) {
+        throw new Error('Failed to export canvas image');
       }
-    },
-    []
-  );
+
+      // Send to AI API
+      const resultBase64 = await diffusionApi.editImageBase64(base64Data, {
+        prompt,
+        negativePrompt: options.negativePrompt,
+        numInferenceSteps: options.numInferenceSteps,
+        seed: options.seed,
+      });
+
+      // Load the result as new image
+      const img = new window.Image();
+      img.onload = () => {
+        // Clear existing content and set new image
+        setShapes([]);
+        setLines([]);
+        setLoadedImage(img);
+        setSelectedId(null);
+      };
+      img.onerror = () => {
+        setAiError('Failed to load the edited image');
+      };
+      img.src = `data:image/png;base64,${resultBase64}`;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error occurred';
+      setAiError(message);
+    } finally {
+      setIsAIProcessing(false);
+    }
+  }, []);
 
   const getCursor = () => {
     switch (currentTool) {
@@ -349,12 +350,7 @@ export function ImageEditor({ width = 800, height = 600 }: ImageEditorProps) {
         );
       case 'text':
         return (
-          <Text
-            {...commonProps}
-            text={shape.text}
-            fontSize={shape.fontSize}
-            fill={shape.fill}
-          />
+          <Text {...commonProps} text={shape.text} fontSize={shape.fontSize} fill={shape.fill} />
         );
       default:
         return null;
@@ -411,14 +407,7 @@ export function ImageEditor({ width = 800, height = 600 }: ImageEditorProps) {
         >
           <Layer>
             {/* Background */}
-            <Rect
-              x={0}
-              y={0}
-              width={width}
-              height={height}
-              fill="#ffffff"
-              listening={false}
-            />
+            <Rect x={0} y={0} width={width} height={height} fill="#ffffff" listening={false} />
 
             {/* Loaded image */}
             {loadedImage && (
