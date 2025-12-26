@@ -76,7 +76,12 @@ export function AIEditPanel({ onEdit, isProcessing, isAvailable, error }: AIEdit
         <span className="ai-status available">Ready</span>
       </div>
 
-      <form onSubmit={handleSubmit} className="ai-form">
+      <form
+        onSubmit={(e) => {
+          void handleSubmit(e);
+        }}
+        className="ai-form"
+      >
         <div className="ai-prompt-container">
           <textarea
             className="ai-prompt-input"

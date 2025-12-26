@@ -31,9 +31,14 @@ export interface InfoResponse {
   gpu_memory_gb: number | null;
 }
 
+interface EditBase64Response {
+  image: string;
+  format: string;
+}
+
 // Default to same host, port 8000 (can be overridden)
 const DEFAULT_BASE_URL =
-  import.meta.env.VITE_DIFFUSION_API_URL ||
+  (import.meta.env.VITE_DIFFUSION_API_URL as string | undefined) ||
   `${window.location.protocol}//${window.location.hostname}:8000`;
 
 class DiffusionApi {
@@ -65,7 +70,7 @@ class DiffusionApi {
     if (!response.ok) {
       throw new Error(`Health check failed: ${response.statusText}`);
     }
-    return response.json();
+    return response.json() as Promise<HealthResponse>;
   }
 
   /**
@@ -76,7 +81,7 @@ class DiffusionApi {
     if (!response.ok) {
       throw new Error(`Info request failed: ${response.statusText}`);
     }
-    return response.json();
+    return response.json() as Promise<InfoResponse>;
   }
 
   /**
@@ -147,7 +152,7 @@ class DiffusionApi {
       throw new Error(`Edit request failed: ${errorText}`);
     }
 
-    const result = await response.json();
+    const result = (await response.json()) as EditBase64Response;
     return result.image;
   }
 }

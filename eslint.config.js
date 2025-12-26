@@ -70,6 +70,14 @@ export default tseslint.config(
   },
   prettier,
   {
-    ignores: ['dist/**', 'coverage/**', 'vite.config.ts', 'eslint.config.js'],
+    ignores: [
+      'dist/**',
+      'coverage/**',
+      'vite.config.ts',
+      'eslint.config.js',
+      '.venv/**',
+      'site/**',
+      'node_modules/**',
+    ],
   }
 );
