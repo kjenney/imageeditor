@@ -23,13 +23,13 @@ resource "aws_security_group" "app" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Ollama API access (conditional - when Qwen is enabled)
+  # Diffusion API access (conditional - when Qwen Image Edit is enabled)
   dynamic "ingress" {
-    for_each = var.enable_qwen ? [1] : []
+    for_each = var.enable_qwen_image_edit ? [1] : []
     content {
-      description = "Ollama API"
-      from_port   = var.ollama_port
-      to_port     = var.ollama_port
+      description = "Diffusion API (FastAPI)"
+      from_port   = var.diffusion_api_port
+      to_port     = var.diffusion_api_port
       protocol    = "tcp"
       cidr_blocks = ["0.0.0.0/0"]
     }

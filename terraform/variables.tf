@@ -46,27 +46,51 @@ variable "app_port" {
   default     = 80
 }
 
-# Qwen Model Configuration
-variable "enable_qwen" {
-  description = "Enable Qwen model support via Ollama"
+# Qwen Image Edit Configuration (Diffusion Model)
+variable "enable_qwen_image_edit" {
+  description = "Enable Qwen Image Edit diffusion model via FastAPI + Diffusers"
   type        = bool
   default     = true
 }
 
-variable "qwen_model" {
-  description = "Qwen model to install (e.g., qwen2.5:0.5b, qwen2.5:1.5b, qwen2.5:3b, qwen2.5:7b, qwen2.5:14b, qwen2.5:32b)"
+variable "qwen_model_variant" {
+  description = "Qwen Image Edit model variant: 'full' (best quality) or 'fp8' (faster, less VRAM)"
   type        = string
-  default     = "qwen2.5:7b"
+  default     = "full"
+
+  validation {
+    condition     = contains(["full", "fp8"], var.qwen_model_variant)
+    error_message = "qwen_model_variant must be 'full' or 'fp8'"
+  }
 }
 
-variable "ollama_port" {
-  description = "Port for Ollama API server"
+variable "gpu_instance_type" {
+  description = "GPU instance type for diffusion model (g5.xlarge minimum for 24GB VRAM)"
+  type        = string
+  default     = "g5.2xlarge"
+}
+
+variable "diffusion_api_port" {
+  description = "Port for FastAPI diffusion model server"
   type        = number
-  default     = 11434
+  default     = 8000
 }
 
 variable "qwen_storage_size" {
-  description = "EBS volume size in GB when Qwen is enabled (larger models need more storage)"
+  description = "EBS volume size in GB for GPU instance (model is ~40GB, need space for CUDA/Python)"
   type        = number
-  default     = 50
+  default     = 120
+}
+
+variable "model_preload" {
+  description = "Preload model on startup (true) or lazy load on first request (false)"
+  type        = bool
+  default     = true
+}
+
+variable "huggingface_token" {
+  description = "HuggingFace token for model access (optional)"
+  type        = string
+  default     = ""
+  sensitive   = true
 }

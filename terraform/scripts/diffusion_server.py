@@ -1,0 +1,290 @@
+#!/usr/bin/env python3
+"""
+FastAPI server for Qwen-Image-Edit-2511 diffusion model.
+Provides REST API for AI-powered image editing.
+"""
+import os
+import io
+import base64
+import logging
+from typing import Optional
+from contextlib import asynccontextmanager
+
+import torch
+from PIL import Image
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+# Global model storage
+model_state = {
+    "pipeline": None,
+    "loaded": False,
+    "model_id": None
+}
+
+# Environment configuration
+MODEL_VARIANT = os.getenv("MODEL_VARIANT", "full")
+MODEL_PRELOAD = os.getenv("MODEL_PRELOAD", "true").lower() == "true"
+HF_TOKEN = os.getenv("HF_TOKEN", None) or None  # Convert empty string to None
+
+MODEL_IDS = {
+    "full": "Qwen/Qwen-Image-Edit-2511",
+    "fp8": "1038lab/Qwen-Image-Edit-2511-FP8"
+}
+
+
+def load_model():
+    """Load the Qwen Image Edit pipeline."""
+    from diffusers import QwenImageEditPlusPipeline
+
+    model_id = MODEL_IDS.get(MODEL_VARIANT, MODEL_IDS["full"])
+    logger.info(f"Loading model: {model_id}")
+    logger.info(f"CUDA available: {torch.cuda.is_available()}")
+
+    if torch.cuda.is_available():
+        logger.info(f"GPU: {torch.cuda.get_device_name(0)}")
+        logger.info(f"GPU Memory: {torch.cuda.get_device_properties(0).total_memory / (1024**3):.1f} GB")
+
+    # Use bfloat16 for better precision on A10G
+    dtype = torch.bfloat16
+
+    pipeline = QwenImageEditPlusPipeline.from_pretrained(
+        model_id,
+        torch_dtype=dtype,
+        token=HF_TOKEN,
+    )
+    pipeline.to("cuda")
+
+    # Enable memory optimizations
+    pipeline.enable_model_cpu_offload()
+
+    model_state["pipeline"] = pipeline
+    model_state["loaded"] = True
+    model_state["model_id"] = model_id
+
+    logger.info(f"Model loaded successfully: {model_id}")
+    return pipeline
+
+
+def get_pipeline():
+    """Get or load the pipeline."""
+    if not model_state["loaded"]:
+        load_model()
+    return model_state["pipeline"]
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan handler."""
+    if MODEL_PRELOAD:
+        logger.info("Preloading model on startup...")
+        try:
+            load_model()
+        except Exception as e:
+            logger.error(f"Failed to preload model: {e}")
+            # Continue anyway - model will load on first request
+    yield
+    # Cleanup
+    if model_state["pipeline"]:
+        del model_state["pipeline"]
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+
+app = FastAPI(
+    title="Qwen Image Edit API",
+    description="AI-powered image editing using Qwen-Image-Edit-2511",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# Enable CORS for frontend integration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+class EditRequestBase64(BaseModel):
+    """Request model for image editing via base64."""
+    image: str  # Base64 encoded image
+    prompt: str
+    negative_prompt: Optional[str] = None
+    num_inference_steps: int = 40
+    guidance_scale: float = 1.0
+    true_cfg_scale: float = 4.0
+    seed: Optional[int] = None
+
+
+class InfoResponse(BaseModel):
+    """Model info response."""
+    model_id: Optional[str]
+    variant: str
+    loaded: bool
+    cuda_available: bool
+    gpu_name: Optional[str]
+    gpu_memory_gb: Optional[float]
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {
+        "status": "healthy",
+        "model_loaded": model_state["loaded"],
+        "cuda_available": torch.cuda.is_available()
+    }
+
+
+@app.get("/info", response_model=InfoResponse)
+async def get_info():
+    """Get model and system information."""
+    gpu_name = None
+    gpu_memory = None
+
+    if torch.cuda.is_available():
+        gpu_name = torch.cuda.get_device_name(0)
+        gpu_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+
+    return InfoResponse(
+        model_id=model_state.get("model_id") or MODEL_IDS.get(MODEL_VARIANT),
+        variant=MODEL_VARIANT,
+        loaded=model_state["loaded"],
+        cuda_available=torch.cuda.is_available(),
+        gpu_name=gpu_name,
+        gpu_memory_gb=gpu_memory
+    )
+
+
+@app.post("/edit")
+async def edit_image(
+    image: UploadFile = File(...),
+    prompt: str = Form(...),
+    negative_prompt: Optional[str] = Form(None),
+    num_inference_steps: int = Form(40),
+    guidance_scale: float = Form(1.0),
+    true_cfg_scale: float = Form(4.0),
+    seed: Optional[int] = Form(None),
+):
+    """
+    Edit an image using AI.
+
+    - **image**: Image file to edit (PNG, JPG, etc.)
+    - **prompt**: Text description of desired edit
+    - **negative_prompt**: What to avoid in the edit (optional)
+    - **num_inference_steps**: Number of denoising steps (default: 40)
+    - **guidance_scale**: How closely to follow the prompt (default: 1.0)
+    - **true_cfg_scale**: True CFG scale for consistency (default: 4.0)
+    - **seed**: Random seed for reproducibility (optional)
+    """
+    try:
+        # Load image
+        image_data = await image.read()
+        input_image = Image.open(io.BytesIO(image_data)).convert("RGB")
+        logger.info(f"Received image: {input_image.size}, prompt: {prompt[:50]}...")
+
+        # Get pipeline
+        pipeline = get_pipeline()
+
+        # Set seed if provided
+        generator = None
+        if seed is not None:
+            generator = torch.Generator(device="cuda").manual_seed(seed)
+
+        # Run inference
+        with torch.inference_mode():
+            result = pipeline(
+                prompt=prompt,
+                image=[input_image],
+                negative_prompt=negative_prompt or " ",
+                num_inference_steps=num_inference_steps,
+                guidance_scale=guidance_scale,
+                true_cfg_scale=true_cfg_scale,
+                generator=generator,
+                num_images_per_prompt=1,
+            ).images[0]
+
+        # Convert to bytes
+        output_buffer = io.BytesIO()
+        result.save(output_buffer, format="PNG")
+        output_buffer.seek(0)
+
+        logger.info("Image edit completed successfully")
+        return StreamingResponse(
+            output_buffer,
+            media_type="image/png",
+            headers={"Content-Disposition": "attachment; filename=edited_image.png"}
+        )
+
+    except Exception as e:
+        logger.error(f"Error processing image: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/edit/base64")
+async def edit_image_base64(request: EditRequestBase64):
+    """
+    Edit an image using base64 encoding.
+    Returns base64 encoded result.
+    """
+    try:
+        # Decode base64 image
+        image_data = base64.b64decode(request.image)
+        input_image = Image.open(io.BytesIO(image_data)).convert("RGB")
+        logger.info(f"Received base64 image: {input_image.size}, prompt: {request.prompt[:50]}...")
+
+        # Get pipeline
+        pipeline = get_pipeline()
+
+        # Set seed if provided
+        generator = None
+        if request.seed is not None:
+            generator = torch.Generator(device="cuda").manual_seed(request.seed)
+
+        # Run inference
+        with torch.inference_mode():
+            result = pipeline(
+                prompt=request.prompt,
+                image=[input_image],
+                negative_prompt=request.negative_prompt or " ",
+                num_inference_steps=request.num_inference_steps,
+                guidance_scale=request.guidance_scale,
+                true_cfg_scale=request.true_cfg_scale,
+                generator=generator,
+                num_images_per_prompt=1,
+            ).images[0]
+
+        # Convert to base64
+        output_buffer = io.BytesIO()
+        result.save(output_buffer, format="PNG")
+        output_buffer.seek(0)
+        result_base64 = base64.b64encode(output_buffer.getvalue()).decode()
+
+        logger.info("Base64 image edit completed successfully")
+        return JSONResponse({
+            "image": result_base64,
+            "format": "png"
+        })
+
+    except Exception as e:
+        logger.error(f"Error processing image: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.getenv("PORT", 8000))
+    logger.info(f"Starting server on port {port}")
+    uvicorn.run(app, host="0.0.0.0", port=port)

@@ -1,4 +1,4 @@
-# Get latest Amazon Linux 2023 AMI
+# Get latest Amazon Linux 2023 AMI (for non-GPU instances)
 data "aws_ami" "amazon_linux_2023" {
   most_recent = true
   owners      = ["amazon"]
@@ -16,6 +16,27 @@ data "aws_ami" "amazon_linux_2023" {
   filter {
     name   = "root-device-type"
     values = ["ebs"]
+  }
+}
+
+# Get Deep Learning AMI with NVIDIA drivers (for GPU instances)
+data "aws_ami" "deep_learning" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["Deep Learning Base OSS Nvidia Driver GPU AMI (Amazon Linux 2023)*"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
   }
 }
 
@@ -55,25 +76,31 @@ resource "aws_iam_role_policy_attachment" "ssm_policy" {
 
 # EC2 Instance
 resource "aws_instance" "app" {
-  ami                    = data.aws_ami.amazon_linux_2023.id
-  instance_type          = var.instance_type
+  # Use Deep Learning AMI with NVIDIA drivers when diffusion model is enabled
+  ami           = var.enable_qwen_image_edit ? data.aws_ami.deep_learning.id : data.aws_ami.amazon_linux_2023.id
+  instance_type = var.enable_qwen_image_edit ? var.gpu_instance_type : var.instance_type
+
   subnet_id              = aws_subnet.public[0].id
   vpc_security_group_ids = [aws_security_group.app.id]
   iam_instance_profile   = aws_iam_instance_profile.ec2_profile.name
   # Access via AWS Systems Manager Session Manager - no SSH key required
 
   root_block_device {
-    volume_size           = var.enable_qwen ? var.qwen_storage_size : 30
+    volume_size           = var.enable_qwen_image_edit ? var.qwen_storage_size : 30
     volume_type           = "gp3"
+    iops                  = var.enable_qwen_image_edit ? 3000 : null
+    throughput            = var.enable_qwen_image_edit ? 125 : null
     encrypted             = true
     delete_on_termination = true
   }
 
   user_data = base64encode(templatefile("${path.module}/user_data.sh", {
-    app_port    = var.app_port
-    enable_qwen = var.enable_qwen
-    qwen_model  = var.qwen_model
-    ollama_port = var.ollama_port
+    app_port           = var.app_port
+    enable_qwen        = var.enable_qwen_image_edit
+    qwen_model_variant = var.qwen_model_variant
+    diffusion_api_port = var.diffusion_api_port
+    model_preload      = var.model_preload
+    huggingface_token  = var.huggingface_token
   }))
 
   tags = {

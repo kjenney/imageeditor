@@ -38,13 +38,18 @@ output "ssm_session_command" {
   value       = "aws ssm start-session --target ${aws_instance.app.id}"
 }
 
-# Qwen/Ollama outputs (conditional)
-output "ollama_api_url" {
-  description = "URL for the Ollama API (when Qwen is enabled)"
-  value       = var.enable_qwen ? "http://${aws_eip.app.public_ip}:${var.ollama_port}" : null
+# Qwen Image Edit outputs (conditional)
+output "diffusion_api_url" {
+  description = "URL for the Diffusion API (when Qwen Image Edit is enabled)"
+  value       = var.enable_qwen_image_edit ? "http://${aws_eip.app.public_ip}:${var.diffusion_api_port}" : null
 }
 
-output "qwen_model" {
-  description = "Qwen model installed (when Qwen is enabled)"
-  value       = var.enable_qwen ? var.qwen_model : null
+output "qwen_model_variant" {
+  description = "Qwen Image Edit model variant installed (when enabled)"
+  value       = var.enable_qwen_image_edit ? var.qwen_model_variant : null
+}
+
+output "gpu_instance_type" {
+  description = "GPU instance type used (when Qwen Image Edit is enabled)"
+  value       = var.enable_qwen_image_edit ? var.gpu_instance_type : null
 }

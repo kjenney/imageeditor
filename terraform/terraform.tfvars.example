@@ -23,26 +23,36 @@ instance_type = "t3.micro"
 app_port = 80
 
 # ========================================
-# Qwen Model Configuration (Optional)
+# Qwen Image Edit Configuration (Optional)
 # ========================================
 
-# Enable Qwen model support via Ollama
-# When enabled, Ollama will be installed and the specified Qwen model will be downloaded
-enable_qwen = false
+# Enable Qwen Image Edit diffusion model
+# When enabled, a GPU instance will be provisioned with FastAPI + Diffusers
+# WARNING: GPU instances are expensive (~$1/hour for g5.2xlarge)
+enable_qwen_image_edit = false
 
-# Qwen model to install
-# Available models:
-#   - qwen2.5:0.5b  (~400MB, minimal resources)
-#   - qwen2.5:1.5b  (~1GB, light usage)
-#   - qwen2.5:3b    (~2GB, moderate usage)
-#   - qwen2.5:7b    (~4.5GB, recommended for most use cases)
-#   - qwen2.5:14b   (~9GB, high performance)
-#   - qwen2.5:32b   (~19GB, requires significant resources)
-qwen_model = "qwen2.5:7b"
+# Model variant:
+#   - "full": Qwen/Qwen-Image-Edit-2511 (~40GB, best quality)
+#   - "fp8":  1038lab/Qwen-Image-Edit-2511-FP8 (~20GB, faster, less VRAM)
+qwen_model_variant = "full"
 
-# Port for Ollama API server
-ollama_port = 11434
+# GPU instance type (requires 24GB+ VRAM)
+# Options:
+#   - g5.xlarge:  A10G 24GB, 4 vCPU, 16GB RAM  (~$1.01/hr)
+#   - g5.2xlarge: A10G 24GB, 8 vCPU, 32GB RAM  (~$1.21/hr) [Recommended]
+#   - g5.4xlarge: A10G 24GB, 16 vCPU, 64GB RAM (~$1.62/hr)
+gpu_instance_type = "g5.2xlarge"
 
-# EBS volume size when Qwen is enabled (in GB)
-# Larger models require more storage
-qwen_storage_size = 50
+# Port for FastAPI diffusion server
+diffusion_api_port = 8000
+
+# EBS volume size for GPU instance (in GB)
+# Model is ~40GB, plus CUDA/Python dependencies
+qwen_storage_size = 120
+
+# Preload model on startup (true) or lazy load on first request (false)
+# Preloading adds ~5-10 minutes to startup but faster first request
+model_preload = true
+
+# HuggingFace token (optional, for gated models)
+# huggingface_token = "hf_xxxxxxxxxxxx"
