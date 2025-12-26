@@ -154,6 +154,8 @@ curl -X POST "http://<ip>:8000/edit" \
 - **full**: Best quality, ~40GB download, requires 24GB VRAM
 - **fp8**: Faster inference, ~20GB download, reduced VRAM usage
 
+For detailed usage instructions, prompt examples, and best practices, see the [AI Image Editing Guide](../features/ai-image-editing.md).
+
 ## Security
 
 ### Security Groups
