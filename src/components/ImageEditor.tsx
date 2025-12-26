@@ -4,6 +4,8 @@ import Konva from 'konva';
 import { EditorTool, ShapeConfig, DrawingLine } from '@/types';
 import { generateId } from '@/utils';
 import Toolbar from './Toolbar';
+import AIEditPanel, { AIEditOptions } from './AIEditPanel';
+import { diffusionApi } from '@/services/diffusionApi';
 
 interface ImageEditorProps {
   width?: number;
@@ -24,6 +26,24 @@ export function ImageEditor({ width = 800, height = 600 }: ImageEditorProps) {
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentShape, setCurrentShape] = useState<ShapeConfig | null>(null);
   const [loadedImage, setLoadedImage] = useState<HTMLImageElement | null>(null);
+
+  // AI editing state
+  const [isAIProcessing, setIsAIProcessing] = useState(false);
+  const [isAIAvailable, setIsAIAvailable] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  // Check AI availability on mount
+  useEffect(() => {
+    const checkAIAvailability = async () => {
+      try {
+        const health = await diffusionApi.health();
+        setIsAIAvailable(health.status === 'healthy');
+      } catch {
+        setIsAIAvailable(false);
+      }
+    };
+    checkAIAvailability();
+  }, []);
 
   const handleMouseDown = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
@@ -224,6 +244,53 @@ export function ImageEditor({ width = 800, height = 600 }: ImageEditorProps) {
     }
   }, []);
 
+  const handleAIEdit = useCallback(
+    async (prompt: string, options: AIEditOptions) => {
+      if (!stageRef.current) return;
+
+      setIsAIProcessing(true);
+      setAiError(null);
+
+      try {
+        // Export current canvas to blob
+        const dataURL = stageRef.current.toDataURL({ pixelRatio: 1 });
+        const base64Data = dataURL.split(',')[1] || '';
+
+        if (!base64Data) {
+          throw new Error('Failed to export canvas image');
+        }
+
+        // Send to AI API
+        const resultBase64 = await diffusionApi.editImageBase64(base64Data, {
+          prompt,
+          negativePrompt: options.negativePrompt,
+          numInferenceSteps: options.numInferenceSteps,
+          seed: options.seed,
+        });
+
+        // Load the result as new image
+        const img = new window.Image();
+        img.onload = () => {
+          // Clear existing content and set new image
+          setShapes([]);
+          setLines([]);
+          setLoadedImage(img);
+          setSelectedId(null);
+        };
+        img.onerror = () => {
+          setAiError('Failed to load the edited image');
+        };
+        img.src = `data:image/png;base64,${resultBase64}`;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error occurred';
+        setAiError(message);
+      } finally {
+        setIsAIProcessing(false);
+      }
+    },
+    []
+  );
+
   const getCursor = () => {
     switch (currentTool) {
       case 'select':
@@ -303,17 +370,25 @@ export function ImageEditor({ width = 800, height = 600 }: ImageEditorProps) {
         onChange={handleFileChange}
         style={{ display: 'none' }}
       />
-      <Toolbar
-        currentTool={currentTool}
-        brushSize={brushSize}
-        brushColor={brushColor}
-        onToolChange={setCurrentTool}
-        onBrushSizeChange={setBrushSize}
-        onBrushColorChange={setBrushColor}
-        onLoadImage={handleLoadImage}
-        onExport={handleExport}
-        onClear={handleClear}
-      />
+      <div className="editor-sidebar">
+        <Toolbar
+          currentTool={currentTool}
+          brushSize={brushSize}
+          brushColor={brushColor}
+          onToolChange={setCurrentTool}
+          onBrushSizeChange={setBrushSize}
+          onBrushColorChange={setBrushColor}
+          onLoadImage={handleLoadImage}
+          onExport={handleExport}
+          onClear={handleClear}
+        />
+        <AIEditPanel
+          onEdit={handleAIEdit}
+          isProcessing={isAIProcessing}
+          isAvailable={isAIAvailable}
+          error={aiError}
+        />
+      </div>
       <div className="canvas-container" style={{ cursor: getCursor() }}>
         <Stage
           ref={stageRef}

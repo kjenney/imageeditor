@@ -15,6 +15,46 @@ Qwen-Image-Edit-2511 enables natural language image editing without masks or man
 - Season and lighting changes
 - Photo restoration and enhancement
 
+## Using AI Edit in the App
+
+When deployed with `enable_qwen_image_edit = true`, the Image Editor includes an **AI Edit** panel in the sidebar.
+
+### Quick Start
+
+1. **Load or create an image** - Use "Load Image" to import an image, or draw/create content on the canvas
+2. **Enter a prompt** - In the AI Edit panel, describe what you want to change
+3. **Click "Apply AI Edit"** - Wait 10-30 seconds for processing
+4. **View the result** - The edited image replaces the canvas content
+
+### AI Edit Panel Features
+
+**Prompt Input**
+- Enter natural language instructions like "remove the background" or "add a sunset sky"
+- Keep prompts concise and action-oriented
+
+**Quick Suggestions**
+- Click suggestion chips for common edits:
+  - Remove the background
+  - Add a sunset sky background
+  - Transform into Studio Ghibli style
+  - Make it look like a watercolor painting
+
+**Advanced Options** (click to expand)
+- **Negative prompt**: Describe what to avoid (e.g., "blurry, low quality")
+- **Quality steps**: Higher values (40-50) = better quality but slower
+- **Seed**: Set a number for reproducible results
+
+### Environment Configuration
+
+You can configure the API URL via environment variable:
+
+```bash
+# In .env or environment
+VITE_DIFFUSION_API_URL=http://your-gpu-server:8000
+```
+
+If not set, the app defaults to `http://<current-host>:8000`.
+
 ## API Endpoints
 
 When `enable_qwen_image_edit = true`, the following API endpoints are available:
