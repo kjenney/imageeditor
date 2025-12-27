@@ -46,8 +46,7 @@ FP8_WEIGHTS_FILE = "Qwen-Image-Edit-2511-FP8_e4m3fn.safetensors"
 
 def load_fp8_model():
     """Load the pipeline with FP8 transformer weights for reduced memory usage."""
-    from diffusers import QwenImageEditPlusPipeline
-    from diffusers.models import QwenImageEditPlusTransformer2DModel
+    from diffusers import QwenImageEditPlusPipeline, QwenImageTransformer2DModel
 
     logger.info("Loading FP8 variant for memory efficiency")
 
@@ -61,8 +60,8 @@ def load_fp8_model():
 
     # Load transformer config and create model with random weights
     logger.info("Loading transformer config from base model...")
-    transformer = QwenImageEditPlusTransformer2DModel.from_config(
-        QwenImageEditPlusTransformer2DModel.load_config(
+    transformer = QwenImageTransformer2DModel.from_config(
+        QwenImageTransformer2DModel.load_config(
             BASE_MODEL_ID,
             subfolder="transformer",
             token=HF_TOKEN,
