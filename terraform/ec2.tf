@@ -94,7 +94,7 @@ resource "aws_instance" "app" {
     delete_on_termination = true
   }
 
-  user_data_base64 = base64encode(templatefile("${path.module}/user_data.sh", {
+  user_data_base64            = base64encode(templatefile("${path.module}/user_data.sh", {
     app_port           = var.app_port
     enable_qwen        = var.enable_qwen_image_edit
     qwen_model_variant = var.qwen_model_variant
@@ -102,6 +102,7 @@ resource "aws_instance" "app" {
     model_preload      = var.model_preload
     huggingface_token  = var.huggingface_token
   }))
+  user_data_replace_on_change = true
 
   tags = {
     Name = "${var.project_name}-app-${var.environment}"
@@ -114,12 +115,18 @@ resource "aws_instance" "app" {
 
 # Elastic IP for consistent public IP
 resource "aws_eip" "app" {
-  instance = aws_instance.app.id
-  domain   = "vpc"
+  domain = "vpc"
 
   tags = {
     Name = "${var.project_name}-eip-${var.environment}"
   }
 
   depends_on = [aws_internet_gateway.main]
+}
+
+# Separate EIP association allows instance replacement without waiting
+resource "aws_eip_association" "app" {
+  instance_id        = aws_instance.app.id
+  allocation_id      = aws_eip.app.id
+  allow_reassociation = true
 }
