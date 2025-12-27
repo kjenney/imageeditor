@@ -223,7 +223,7 @@ terraform destroy
 ### Diffusion Server Issues
 
 - Check service status: `sudo systemctl status diffusion-server`
-- View logs: `sudo journalctl -u diffusion-server -f`
+- View logs: `SYSTEMD_LESS=FRXMK sudo journalctl -u diffusion-server -f`
 - Check GPU availability: `nvidia-smi`
 - Verify model loaded: `curl http://localhost:8000/info`
 - Model download can take 10-30 minutes on first startup

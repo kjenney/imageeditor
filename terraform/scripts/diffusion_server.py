@@ -16,6 +16,8 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from huggingface_hub import hf_hub_download
+from safetensors.torch import load_file as load_safetensors
 
 # Configure logging
 logging.basicConfig(
@@ -36,35 +38,83 @@ MODEL_VARIANT = os.getenv("MODEL_VARIANT", "full")
 MODEL_PRELOAD = os.getenv("MODEL_PRELOAD", "true").lower() == "true"
 HF_TOKEN = os.getenv("HF_TOKEN", None) or None  # Convert empty string to None
 
-MODEL_IDS = {
-    "full": "Qwen/Qwen-Image-Edit-2511",
-    "fp8": "1038lab/Qwen-Image-Edit-2511-FP8"
-}
+# Model configuration
+BASE_MODEL_ID = "Qwen/Qwen-Image-Edit-2511"
+FP8_WEIGHTS_REPO = "1038lab/Qwen-Image-Edit-2511-FP8"
+FP8_WEIGHTS_FILE = "Qwen-Image-Edit-2511-FP8_e4m3fn.safetensors"
+
+
+def load_fp8_model():
+    """Load the pipeline with FP8 transformer weights for reduced memory usage."""
+    from diffusers import QwenImageEditPlusPipeline
+    from diffusers.models import QwenImageEditPlusTransformer2DModel
+
+    logger.info("Loading FP8 variant for memory efficiency")
+
+    # Download FP8 weights
+    logger.info(f"Downloading FP8 weights from: {FP8_WEIGHTS_REPO}/{FP8_WEIGHTS_FILE}")
+    fp8_weights_path = hf_hub_download(
+        repo_id=FP8_WEIGHTS_REPO,
+        filename=FP8_WEIGHTS_FILE,
+        token=HF_TOKEN,
+    )
+
+    # Load transformer config and create model with random weights
+    logger.info("Loading transformer config from base model...")
+    transformer = QwenImageEditPlusTransformer2DModel.from_config(
+        QwenImageEditPlusTransformer2DModel.load_config(
+            BASE_MODEL_ID,
+            subfolder="transformer",
+            token=HF_TOKEN,
+        )
+    )
+
+    # Load FP8 weights directly
+    logger.info("Loading FP8 weights into transformer...")
+    fp8_state_dict = load_safetensors(fp8_weights_path)
+    transformer.load_state_dict(fp8_state_dict, strict=False)
+    del fp8_state_dict  # Free memory
+    logger.info("FP8 weights loaded successfully")
+
+    # Load the rest of the pipeline (VAE, text encoder, etc.) - excludes transformer
+    logger.info(f"Loading remaining pipeline components from: {BASE_MODEL_ID}")
+    pipeline = QwenImageEditPlusPipeline.from_pretrained(
+        BASE_MODEL_ID,
+        transformer=transformer,  # Use our FP8-loaded transformer
+        torch_dtype=torch.bfloat16,
+        low_cpu_mem_usage=True,
+        token=HF_TOKEN,
+    )
+
+    return pipeline
 
 
 def load_model():
     """Load the Qwen Image Edit pipeline."""
     from diffusers import QwenImageEditPlusPipeline
 
-    model_id = MODEL_IDS.get(MODEL_VARIANT, MODEL_IDS["full"])
-    logger.info(f"Loading model: {model_id}")
+    logger.info(f"Loading model variant: {MODEL_VARIANT}")
     logger.info(f"CUDA available: {torch.cuda.is_available()}")
 
     if torch.cuda.is_available():
         logger.info(f"GPU: {torch.cuda.get_device_name(0)}")
         logger.info(f"GPU Memory: {torch.cuda.get_device_properties(0).total_memory / (1024**3):.1f} GB")
 
-    # Use bfloat16 for better precision on A10G
-    dtype = torch.bfloat16
+    if MODEL_VARIANT == "fp8":
+        pipeline = load_fp8_model()
+        model_id = f"{BASE_MODEL_ID} + FP8"
+    else:
+        # Full variant: Load complete model directly
+        logger.info(f"Loading full model: {BASE_MODEL_ID}")
+        pipeline = QwenImageEditPlusPipeline.from_pretrained(
+            BASE_MODEL_ID,
+            torch_dtype=torch.bfloat16,
+            low_cpu_mem_usage=True,
+            token=HF_TOKEN,
+        )
+        model_id = BASE_MODEL_ID
 
-    pipeline = QwenImageEditPlusPipeline.from_pretrained(
-        model_id,
-        torch_dtype=dtype,
-        token=HF_TOKEN,
-    )
-    pipeline.to("cuda")
-
-    # Enable memory optimizations
+    # Enable memory optimizations - keeps components on CPU until needed
     pipeline.enable_model_cpu_offload()
 
     model_state["pipeline"] = pipeline
@@ -159,7 +209,7 @@ async def get_info():
         gpu_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)
 
     return InfoResponse(
-        model_id=model_state.get("model_id") or MODEL_IDS.get(MODEL_VARIANT),
+        model_id=model_state.get("model_id") or BASE_MODEL_ID,
         variant=MODEL_VARIANT,
         loaded=model_state["loaded"],
         cuda_available=torch.cuda.is_available(),
