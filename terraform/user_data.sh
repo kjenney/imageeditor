@@ -111,9 +111,9 @@ if [ "$ENABLE_QWEN" = "true" ]; then
     echo "Installing PyTorch with CUDA support..."
     pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 
-    # Download requirements.txt from GitHub
+    # Download requirements.txt from GitHub (using API to avoid CDN cache)
     echo "Downloading requirements.txt..."
-    curl -fsSL https://raw.githubusercontent.com/kjenney/imageeditor/main/terraform/scripts/requirements.txt -o requirements.txt
+    curl -fsSL -H "Cache-Control: no-cache" "https://raw.githubusercontent.com/kjenney/imageeditor/main/terraform/scripts/requirements.txt?$(date +%s)" -o requirements.txt
     echo "Requirements file contents:"
     cat requirements.txt
 
@@ -122,9 +122,9 @@ if [ "$ENABLE_QWEN" = "true" ]; then
     pip install --upgrade -r requirements.txt
     echo "Installed diffusers version: $(pip show diffusers | grep Version)"
 
-    # Download the FastAPI server script from GitHub
+    # Download the FastAPI server script from GitHub (using cache-busting)
     echo "Deploying FastAPI server..."
-    curl -fsSL https://raw.githubusercontent.com/kjenney/imageeditor/main/terraform/scripts/diffusion_server.py -o server.py
+    curl -fsSL -H "Cache-Control: no-cache" "https://raw.githubusercontent.com/kjenney/imageeditor/main/terraform/scripts/diffusion_server.py?$(date +%s)" -o server.py
     chmod +x server.py
 
     # Create systemd service
