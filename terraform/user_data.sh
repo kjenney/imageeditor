@@ -111,18 +111,9 @@ if [ "$ENABLE_QWEN" = "true" ]; then
     echo "Installing PyTorch with CUDA support..."
     pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 
-    # Create requirements.txt
-    cat > requirements.txt << 'REQUIREMENTS_EOF'
-fastapi>=0.104.0
-uvicorn[standard]>=0.24.0
-python-multipart>=0.0.6
-diffusers>=0.25.0
-transformers>=4.36.0
-accelerate>=0.25.0
-safetensors>=0.4.0
-Pillow>=10.0.0
-pydantic>=2.0.0
-REQUIREMENTS_EOF
+    # Download requirements.txt from GitHub
+    echo "Downloading requirements.txt..."
+    curl -fsSL https://raw.githubusercontent.com/kjenney/imageeditor/main/terraform/scripts/requirements.txt -o requirements.txt
 
     # Install requirements
     echo "Installing Python dependencies..."
