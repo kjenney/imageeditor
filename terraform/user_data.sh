@@ -114,10 +114,13 @@ if [ "$ENABLE_QWEN" = "true" ]; then
     # Download requirements.txt from GitHub
     echo "Downloading requirements.txt..."
     curl -fsSL https://raw.githubusercontent.com/kjenney/imageeditor/main/terraform/scripts/requirements.txt -o requirements.txt
+    echo "Requirements file contents:"
+    cat requirements.txt
 
-    # Install requirements
+    # Install requirements (--upgrade ensures we get the required versions)
     echo "Installing Python dependencies..."
-    pip install -r requirements.txt
+    pip install --upgrade -r requirements.txt
+    echo "Installed diffusers version: $(pip show diffusers | grep Version)"
 
     # Download the FastAPI server script from GitHub
     echo "Deploying FastAPI server..."
