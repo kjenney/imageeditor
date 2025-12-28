@@ -45,17 +45,21 @@ FP8_WEIGHTS_FILE = "Qwen-Image-Edit-2511-FP8_e4m3fn.safetensors"
 
 
 def load_fp8_model():
-    """Load the pipeline with 8-bit quantization for reduced memory usage."""
+    """Load the pipeline with 4-bit quantization for reduced memory usage."""
     from diffusers import QwenImageEditPlusPipeline
     from diffusers.quantizers import PipelineQuantizationConfig
 
-    logger.info("Loading model with 8-bit quantization for memory efficiency")
+    logger.info("Loading model with 4-bit NF4 quantization for memory efficiency")
 
-    # Use bitsandbytes 8-bit quantization via PipelineQuantizationConfig
+    # Use bitsandbytes 4-bit NF4 quantization - more aggressive compression
     quantization_config = PipelineQuantizationConfig(
-        quant_backend="bitsandbytes_8bit",
-        quant_kwargs={"load_in_8bit": True},
-        components_to_quantize=["transformer"],  # Only quantize the large transformer
+        quant_backend="bitsandbytes_4bit",
+        quant_kwargs={
+            "load_in_4bit": True,
+            "bnb_4bit_quant_type": "nf4",
+            "bnb_4bit_compute_dtype": torch.bfloat16,
+        },
+        components_to_quantize=["transformer", "text_encoder"],
     )
 
     pipeline = QwenImageEditPlusPipeline.from_pretrained(
