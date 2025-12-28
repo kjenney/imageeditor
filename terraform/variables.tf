@@ -65,9 +65,9 @@ variable "qwen_model_variant" {
 }
 
 variable "gpu_instance_type" {
-  description = "GPU instance type for diffusion model (g5.4xlarge recommended for 8-bit quantization)"
+  description = "GPU instance type for diffusion model (g5.12xlarge recommended for 8-bit quantization)"
   type        = string
-  default     = "g5.4xlarge"
+  default     = "g5.12xlarge"
 }
 
 variable "diffusion_api_port" {
