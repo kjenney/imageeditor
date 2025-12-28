@@ -35,7 +35,7 @@ output "security_group_id" {
 
 output "ssm_session_command" {
   description = "AWS CLI command to connect via Session Manager"
-  value       = "aws ssm start-session --target ${aws_instance.app.id}"
+  value       = var.aws_profile != null ? "aws ssm start-session --target ${aws_instance.app.id} --profile ${var.aws_profile}" : "aws ssm start-session --target ${aws_instance.app.id}"
 }
 
 # Qwen Image Edit outputs (conditional)
