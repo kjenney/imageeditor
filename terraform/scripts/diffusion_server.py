@@ -58,28 +58,22 @@ def load_fp8_model():
         token=HF_TOKEN,
     )
 
-    # Load transformer config and create model with random weights
-    logger.info("Loading transformer config from base model...")
-    transformer = QwenImageTransformer2DModel.from_config(
-        QwenImageTransformer2DModel.load_config(
-            BASE_MODEL_ID,
-            subfolder="transformer",
-            token=HF_TOKEN,
-        )
+    # Load transformer directly from FP8 safetensors file
+    logger.info("Loading transformer from FP8 weights...")
+    transformer = QwenImageTransformer2DModel.from_single_file(
+        fp8_weights_path,
+        config=BASE_MODEL_ID,
+        subfolder="transformer",
+        torch_dtype=torch.bfloat16,
+        token=HF_TOKEN,
     )
+    logger.info("FP8 transformer loaded successfully")
 
-    # Load FP8 weights directly
-    logger.info("Loading FP8 weights into transformer...")
-    fp8_state_dict = load_safetensors(fp8_weights_path)
-    transformer.load_state_dict(fp8_state_dict, strict=False)
-    del fp8_state_dict  # Free memory
-    logger.info("FP8 weights loaded successfully")
-
-    # Load the rest of the pipeline (VAE, text encoder, etc.) - excludes transformer
+    # Load the rest of the pipeline (VAE, text encoder, etc.)
     logger.info(f"Loading remaining pipeline components from: {BASE_MODEL_ID}")
     pipeline = QwenImageEditPlusPipeline.from_pretrained(
         BASE_MODEL_ID,
-        transformer=transformer,  # Use our FP8-loaded transformer
+        transformer=transformer,
         torch_dtype=torch.bfloat16,
         low_cpu_mem_usage=True,
         token=HF_TOKEN,
