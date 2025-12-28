@@ -44,34 +44,8 @@ FP8_WEIGHTS_REPO = "1038lab/Qwen-Image-Edit-2511-FP8"
 FP8_WEIGHTS_FILE = "Qwen-Image-Edit-2511-FP8_e4m3fn.safetensors"
 
 
-def load_fp8_model():
-    """Load the pipeline with 8-bit quantization across multiple GPUs."""
-    from diffusers import QwenImageEditPlusPipeline
-    from diffusers.quantizers import PipelineQuantizationConfig
-
-    logger.info("Loading model with 8-bit quantization across all GPUs")
-
-    # Use bitsandbytes 8-bit quantization - better quality than 4-bit
-    quantization_config = PipelineQuantizationConfig(
-        quant_backend="bitsandbytes_8bit",
-        quant_kwargs={"load_in_8bit": True},
-        components_to_quantize=["transformer"],
-    )
-
-    pipeline = QwenImageEditPlusPipeline.from_pretrained(
-        BASE_MODEL_ID,
-        quantization_config=quantization_config,
-        torch_dtype=torch.bfloat16,
-        device_map="balanced",  # Spread across all available GPUs
-        low_cpu_mem_usage=True,
-        token=HF_TOKEN,
-    )
-
-    return pipeline
-
-
 def load_model():
-    """Load the Qwen Image Edit pipeline."""
+    """Load the Qwen Image Edit pipeline optimized for speed."""
     from diffusers import QwenImageEditPlusPipeline
 
     logger.info(f"Loading model variant: {MODEL_VARIANT}")
@@ -80,32 +54,38 @@ def load_model():
     if torch.cuda.is_available():
         gpu_count = torch.cuda.device_count()
         logger.info(f"Number of GPUs: {gpu_count}")
+        total_vram = 0
         for i in range(gpu_count):
-            logger.info(f"GPU {i}: {torch.cuda.get_device_name(i)} - {torch.cuda.get_device_properties(i).total_memory / (1024**3):.1f} GB")
+            vram = torch.cuda.get_device_properties(i).total_memory / (1024**3)
+            total_vram += vram
+            logger.info(f"GPU {i}: {torch.cuda.get_device_name(i)} - {vram:.1f} GB")
+        logger.info(f"Total VRAM: {total_vram:.1f} GB")
 
-    if MODEL_VARIANT == "fp8":
-        pipeline = load_fp8_model()
-        model_id = f"{BASE_MODEL_ID} + 8-bit"
-    else:
-        # Full variant: Load complete model across all GPUs
-        logger.info(f"Loading full model across all GPUs: {BASE_MODEL_ID}")
-        pipeline = QwenImageEditPlusPipeline.from_pretrained(
-            BASE_MODEL_ID,
-            torch_dtype=torch.bfloat16,
-            device_map="balanced",  # Spread across all available GPUs
-            low_cpu_mem_usage=True,
-            token=HF_TOKEN,
-        )
-        model_id = BASE_MODEL_ID
+    # Load full model in bfloat16 - fastest inference
+    # With 96GB VRAM on g5.12xlarge, we can fit the full model
+    logger.info(f"Loading full model for fastest inference: {BASE_MODEL_ID}")
+    pipeline = QwenImageEditPlusPipeline.from_pretrained(
+        BASE_MODEL_ID,
+        torch_dtype=torch.bfloat16,
+        low_cpu_mem_usage=True,
+        token=HF_TOKEN,
+    )
 
-    # Note: device_map="balanced" handles memory management across GPUs
-    # Don't use enable_model_cpu_offload() as it conflicts with device_map
+    # Move to first GPU - single GPU is faster than multi-GPU for inference
+    pipeline.to("cuda:0")
+
+    # Enable memory-efficient attention if available
+    try:
+        pipeline.enable_xformers_memory_efficient_attention()
+        logger.info("Enabled xformers memory-efficient attention")
+    except Exception as e:
+        logger.info(f"xformers not available: {e}")
 
     model_state["pipeline"] = pipeline
     model_state["loaded"] = True
-    model_state["model_id"] = model_id
+    model_state["model_id"] = BASE_MODEL_ID
 
-    logger.info(f"Model loaded successfully: {model_id}")
+    logger.info(f"Model loaded successfully: {BASE_MODEL_ID}")
     return pipeline
 
 
@@ -156,7 +136,7 @@ class EditRequestBase64(BaseModel):
     image: str  # Base64 encoded image
     prompt: str
     negative_prompt: Optional[str] = None
-    num_inference_steps: int = 40
+    num_inference_steps: int = 25  # Reduced from 40 for faster inference
     guidance_scale: float = 1.0
     true_cfg_scale: float = 4.0
     seed: Optional[int] = None
@@ -207,7 +187,7 @@ async def edit_image(
     image: UploadFile = File(...),
     prompt: str = Form(...),
     negative_prompt: Optional[str] = Form(None),
-    num_inference_steps: int = Form(40),
+    num_inference_steps: int = Form(25),
     guidance_scale: float = Form(1.0),
     true_cfg_scale: float = Form(4.0),
     seed: Optional[int] = Form(None),

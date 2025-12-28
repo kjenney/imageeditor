@@ -28,7 +28,7 @@ export function AIEditPanel({ onEdit, isProcessing, isAvailable, error }: AIEdit
   const [prompt, setPrompt] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [negativePrompt, setNegativePrompt] = useState('');
-  const [numInferenceSteps, setNumInferenceSteps] = useState(40);
+  const [numInferenceSteps, setNumInferenceSteps] = useState(25);
   const [seed, setSeed] = useState<string>('');
 
   const handleSubmit = useCallback(
