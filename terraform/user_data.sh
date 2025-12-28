@@ -95,13 +95,17 @@ if [ "$ENABLE_QWEN" = "true" ]; then
         exit 1
     fi
 
+    # Install Python 3.11 (required for latest transformers)
+    echo "Installing Python 3.11..."
+    dnf install -y python3.11 python3.11-pip python3.11-devel
+
     # Create application directory
     mkdir -p /opt/diffusion-server
     cd /opt/diffusion-server
 
-    # Create virtual environment with Python 3
-    echo "Creating Python virtual environment..."
-    python3 -m venv venv
+    # Create virtual environment with Python 3.11
+    echo "Creating Python 3.11 virtual environment..."
+    python3.11 -m venv venv
     source venv/bin/activate
 
     # Upgrade pip
