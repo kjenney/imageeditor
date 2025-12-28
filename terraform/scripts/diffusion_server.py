@@ -46,13 +46,16 @@ FP8_WEIGHTS_FILE = "Qwen-Image-Edit-2511-FP8_e4m3fn.safetensors"
 
 def load_fp8_model():
     """Load the pipeline with 8-bit quantization for reduced memory usage."""
-    from diffusers import QwenImageEditPlusPipeline, BitsAndBytesConfig
+    from diffusers import QwenImageEditPlusPipeline
+    from diffusers.quantizers import PipelineQuantizationConfig
 
     logger.info("Loading model with 8-bit quantization for memory efficiency")
 
-    # Use bitsandbytes 8-bit quantization - works on A10G GPU
-    quantization_config = BitsAndBytesConfig(
-        load_in_8bit=True,
+    # Use bitsandbytes 8-bit quantization via PipelineQuantizationConfig
+    quantization_config = PipelineQuantizationConfig(
+        quant_backend="bitsandbytes_8bit",
+        quant_kwargs={"load_in_8bit": True},
+        components_to_quantize=["transformer"],  # Only quantize the large transformer
     )
 
     pipeline = QwenImageEditPlusPipeline.from_pretrained(
