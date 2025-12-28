@@ -41,11 +41,23 @@ const DEFAULT_BASE_URL =
   (import.meta.env.VITE_DIFFUSION_API_URL as string | undefined) ||
   `${window.location.protocol}//${window.location.hostname}:8000`;
 
+// Timeout for image editing requests (10 minutes for large models)
+const EDIT_TIMEOUT_MS = 10 * 60 * 1000;
+
 class DiffusionApi {
   private baseUrl: string;
 
   constructor(config?: Partial<DiffusionApiConfig>) {
     this.baseUrl = config?.baseUrl || DEFAULT_BASE_URL;
+  }
+
+  /**
+   * Create an AbortController with a timeout
+   */
+  private createTimeoutController(timeoutMs: number): AbortController {
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), timeoutMs);
+    return controller;
   }
 
   /**
@@ -111,9 +123,11 @@ class DiffusionApi {
       formData.append('seed', params.seed.toString());
     }
 
+    const controller = this.createTimeoutController(EDIT_TIMEOUT_MS);
     const response = await fetch(`${this.baseUrl}/edit`, {
       method: 'POST',
       body: formData,
+      signal: controller.signal,
     });
 
     if (!response.ok) {
@@ -131,6 +145,7 @@ class DiffusionApi {
    * @returns The edited image as a base64 string
    */
   async editImageBase64(imageBase64: string, params: EditParams): Promise<string> {
+    const controller = this.createTimeoutController(EDIT_TIMEOUT_MS);
     const response = await fetch(`${this.baseUrl}/edit/base64`, {
       method: 'POST',
       headers: {
@@ -145,6 +160,7 @@ class DiffusionApi {
         true_cfg_scale: params.trueCfgScale || 4.0,
         seed: params.seed || null,
       }),
+      signal: controller.signal,
     });
 
     if (!response.ok) {
