@@ -120,6 +120,11 @@ if [ "$ENABLE_QWEN" = "true" ]; then
     # Install requirements (--upgrade ensures we get the required versions)
     echo "Installing Python dependencies..."
     pip install --upgrade -r requirements.txt
+
+    # Install transformers from source for Qwen2_5_VL support
+    echo "Installing transformers from source..."
+    pip install --upgrade git+https://github.com/huggingface/transformers.git
+    echo "Installed transformers version: $(pip show transformers | grep Version)"
     echo "Installed diffusers version: $(pip show diffusers | grep Version)"
 
     # Download the FastAPI server script from GitHub (using cache-busting)
