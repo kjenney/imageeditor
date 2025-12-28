@@ -62,7 +62,7 @@ def load_fp8_model():
         BASE_MODEL_ID,
         quantization_config=quantization_config,
         torch_dtype=torch.bfloat16,
-        device_map="auto",  # Spread across all available GPUs
+        device_map="balanced",  # Spread across all available GPUs
         low_cpu_mem_usage=True,
         token=HF_TOKEN,
     )
@@ -92,13 +92,13 @@ def load_model():
         pipeline = QwenImageEditPlusPipeline.from_pretrained(
             BASE_MODEL_ID,
             torch_dtype=torch.bfloat16,
-            device_map="auto",  # Spread across all available GPUs
+            device_map="balanced",  # Spread across all available GPUs
             low_cpu_mem_usage=True,
             token=HF_TOKEN,
         )
         model_id = BASE_MODEL_ID
 
-    # Note: device_map="auto" handles memory management across GPUs
+    # Note: device_map="balanced" handles memory management across GPUs
     # Don't use enable_model_cpu_offload() as it conflicts with device_map
 
     model_state["pipeline"] = pipeline
