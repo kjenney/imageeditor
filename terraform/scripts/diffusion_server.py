@@ -45,11 +45,11 @@ FP8_WEIGHTS_FILE = "Qwen-Image-Edit-2511-FP8_e4m3fn.safetensors"
 
 
 def load_fp8_model():
-    """Load the pipeline with 8-bit quantization for better quality."""
+    """Load the pipeline with 8-bit quantization across multiple GPUs."""
     from diffusers import QwenImageEditPlusPipeline
     from diffusers.quantizers import PipelineQuantizationConfig
 
-    logger.info("Loading model with 8-bit quantization for better quality")
+    logger.info("Loading model with 8-bit quantization across all GPUs")
 
     # Use bitsandbytes 8-bit quantization - better quality than 4-bit
     quantization_config = PipelineQuantizationConfig(
@@ -62,6 +62,7 @@ def load_fp8_model():
         BASE_MODEL_ID,
         quantization_config=quantization_config,
         torch_dtype=torch.bfloat16,
+        device_map="auto",  # Spread across all available GPUs
         low_cpu_mem_usage=True,
         token=HF_TOKEN,
     )
@@ -77,25 +78,28 @@ def load_model():
     logger.info(f"CUDA available: {torch.cuda.is_available()}")
 
     if torch.cuda.is_available():
-        logger.info(f"GPU: {torch.cuda.get_device_name(0)}")
-        logger.info(f"GPU Memory: {torch.cuda.get_device_properties(0).total_memory / (1024**3):.1f} GB")
+        gpu_count = torch.cuda.device_count()
+        logger.info(f"Number of GPUs: {gpu_count}")
+        for i in range(gpu_count):
+            logger.info(f"GPU {i}: {torch.cuda.get_device_name(i)} - {torch.cuda.get_device_properties(i).total_memory / (1024**3):.1f} GB")
 
     if MODEL_VARIANT == "fp8":
         pipeline = load_fp8_model()
-        model_id = f"{BASE_MODEL_ID} + FP8"
+        model_id = f"{BASE_MODEL_ID} + 8-bit"
     else:
-        # Full variant: Load complete model directly
-        logger.info(f"Loading full model: {BASE_MODEL_ID}")
+        # Full variant: Load complete model across all GPUs
+        logger.info(f"Loading full model across all GPUs: {BASE_MODEL_ID}")
         pipeline = QwenImageEditPlusPipeline.from_pretrained(
             BASE_MODEL_ID,
             torch_dtype=torch.bfloat16,
+            device_map="auto",  # Spread across all available GPUs
             low_cpu_mem_usage=True,
             token=HF_TOKEN,
         )
         model_id = BASE_MODEL_ID
 
-    # Enable memory optimizations - keeps components on CPU until needed
-    pipeline.enable_model_cpu_offload()
+    # Note: device_map="auto" handles memory management across GPUs
+    # Don't use enable_model_cpu_offload() as it conflicts with device_map
 
     model_state["pipeline"] = pipeline
     model_state["loaded"] = True

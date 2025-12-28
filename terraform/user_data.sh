@@ -141,7 +141,6 @@ Environment="MODEL_VARIANT=$MODEL_VARIANT"
 Environment="MODEL_PRELOAD=$MODEL_PRELOAD"
 Environment="HF_TOKEN=$HF_TOKEN"
 Environment="PORT=$DIFFUSION_PORT"
-Environment="CUDA_VISIBLE_DEVICES=0"
 Environment="PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512"
 ExecStart=/opt/diffusion-server/venv/bin/python server.py
 Restart=always
