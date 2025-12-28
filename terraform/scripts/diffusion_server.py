@@ -45,35 +45,19 @@ FP8_WEIGHTS_FILE = "Qwen-Image-Edit-2511-FP8_e4m3fn.safetensors"
 
 
 def load_fp8_model():
-    """Load the pipeline with FP8 transformer weights for reduced memory usage."""
-    from diffusers import QwenImageEditPlusPipeline, QwenImageTransformer2DModel
+    """Load the pipeline with 8-bit quantization for reduced memory usage."""
+    from diffusers import QwenImageEditPlusPipeline, BitsAndBytesConfig
 
-    logger.info("Loading FP8 variant for memory efficiency")
+    logger.info("Loading model with 8-bit quantization for memory efficiency")
 
-    # Download FP8 weights
-    logger.info(f"Downloading FP8 weights from: {FP8_WEIGHTS_REPO}/{FP8_WEIGHTS_FILE}")
-    fp8_weights_path = hf_hub_download(
-        repo_id=FP8_WEIGHTS_REPO,
-        filename=FP8_WEIGHTS_FILE,
-        token=HF_TOKEN,
+    # Use bitsandbytes 8-bit quantization - works on A10G GPU
+    quantization_config = BitsAndBytesConfig(
+        load_in_8bit=True,
     )
 
-    # Load transformer directly from FP8 safetensors file
-    logger.info("Loading transformer from FP8 weights...")
-    transformer = QwenImageTransformer2DModel.from_single_file(
-        fp8_weights_path,
-        config=BASE_MODEL_ID,
-        subfolder="transformer",
-        torch_dtype=torch.bfloat16,
-        token=HF_TOKEN,
-    )
-    logger.info("FP8 transformer loaded successfully")
-
-    # Load the rest of the pipeline (VAE, text encoder, etc.)
-    logger.info(f"Loading remaining pipeline components from: {BASE_MODEL_ID}")
     pipeline = QwenImageEditPlusPipeline.from_pretrained(
         BASE_MODEL_ID,
-        transformer=transformer,
+        quantization_config=quantization_config,
         torch_dtype=torch.bfloat16,
         low_cpu_mem_usage=True,
         token=HF_TOKEN,
