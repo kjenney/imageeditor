@@ -36,12 +36,13 @@ enable_qwen_image_edit = false
 #   - "fp8":  xms991/Qwen-Image-Edit-2511-fp8-e4m3fn (~20GB, faster, less VRAM)
 qwen_model_variant = "full"
 
-# GPU instance type (requires 24GB+ VRAM)
+# GPU instance type (requires 24GB+ VRAM, 64GB+ RAM for 8-bit quantization)
 # Options:
-#   - g5.xlarge:  A10G 24GB, 4 vCPU, 16GB RAM  (~$1.01/hr)
-#   - g5.2xlarge: A10G 24GB, 8 vCPU, 32GB RAM  (~$1.21/hr) [Recommended]
-#   - g5.4xlarge: A10G 24GB, 16 vCPU, 64GB RAM (~$1.62/hr)
-gpu_instance_type = "g5.2xlarge"
+#   - g5.xlarge:  A10G 24GB, 4 vCPU, 16GB RAM  (~$1.01/hr) - 4-bit only
+#   - g5.2xlarge: A10G 24GB, 8 vCPU, 32GB RAM  (~$1.21/hr) - 4-bit only
+#   - g5.4xlarge: A10G 24GB, 16 vCPU, 64GB RAM (~$1.62/hr) [Recommended for 8-bit]
+#   - g5.12xlarge: 4x A10G 96GB, 48 vCPU, 192GB RAM (~$5.67/hr) - full precision
+gpu_instance_type = "g5.4xlarge"
 
 # Port for FastAPI diffusion server
 diffusion_api_port = 8000

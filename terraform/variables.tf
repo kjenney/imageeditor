@@ -65,9 +65,9 @@ variable "qwen_model_variant" {
 }
 
 variable "gpu_instance_type" {
-  description = "GPU instance type for diffusion model (g5.xlarge minimum for 24GB VRAM)"
+  description = "GPU instance type for diffusion model (g5.4xlarge recommended for 8-bit quantization)"
   type        = string
-  default     = "g5.2xlarge"
+  default     = "g5.4xlarge"
 }
 
 variable "diffusion_api_port" {
