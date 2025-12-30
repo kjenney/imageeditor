@@ -161,43 +161,44 @@ model_state = {
 
 
 def load_model():
-    """Load the Qwen Image Edit pipeline with Lightning LoRA."""
-    from diffusers import QwenImageEditPlusPipeline
+    """Load the Qwen Image Edit pipeline with Lightning LoRA and 8-bit quantization."""
+    from diffusers import QwenImageEditPlusPipeline, BitsAndBytesConfig
 
-    logger.info("Loading Qwen-Image-Edit-2511 pipeline...")
+    logger.info("Loading Qwen-Image-Edit-2511 pipeline with 8-bit quantization...")
     logger.info(f"LoRA path: {LORA_PATH}")
     logger.info(f"CUDA available: {torch.cuda.is_available()}")
 
     if torch.cuda.is_available():
         logger.info(f"GPU: {torch.cuda.get_device_name(0)}")
-        logger.info(f"VRAM: {torch.cuda.get_device_properties(0).total_memory / (1024**3):.1f} GB")
+        vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+        logger.info(f"VRAM: {vram_gb:.1f} GB")
 
-    # Always load from HuggingFace to ensure proper tokenizer loading
-    logger.info("Loading from HuggingFace: Qwen/Qwen-Image-Edit-2511")
+    # Configure 8-bit quantization to fit in 24GB VRAM
+    quantization_config = BitsAndBytesConfig(
+        load_in_8bit=True,
+    )
+
+    # Load with 8-bit quantization
+    logger.info("Loading from HuggingFace with 8-bit quantization...")
     pipeline = QwenImageEditPlusPipeline.from_pretrained(
         "Qwen/Qwen-Image-Edit-2511",
         torch_dtype=torch.bfloat16,
+        quantization_config=quantization_config,
         low_cpu_mem_usage=True,
         token=HF_TOKEN,
     )
-
-    # Move to GPU
-    pipeline.to("cuda")
+    # Note: With quantization, model is already on GPU
 
     # Load Lightning LoRA for fast 4-step inference
     if os.path.exists(LORA_PATH):
         logger.info(f"Loading Lightning LoRA: {LORA_PATH}")
-        pipeline.load_lora_weights(LORA_PATH)
-        logger.info("Lightning LoRA loaded - using 4-step inference")
+        try:
+            pipeline.load_lora_weights(LORA_PATH)
+            logger.info("Lightning LoRA loaded - using 4-step inference")
+        except Exception as e:
+            logger.warning(f"Could not load LoRA (may not be compatible with quantization): {e}")
     else:
         logger.warning(f"Lightning LoRA not found at {LORA_PATH}, using default steps")
-
-    # Enable memory optimizations
-    try:
-        pipeline.enable_xformers_memory_efficient_attention()
-        logger.info("Enabled xformers memory-efficient attention")
-    except Exception as e:
-        logger.info(f"xformers not available: {e}")
 
     model_state["pipeline"] = pipeline
     model_state["loaded"] = True
@@ -427,7 +428,7 @@ EOF
 # Install dependencies for the API
 echo "Installing API dependencies..."
 $COMFYUI_DIR/venv/bin/pip install fastapi uvicorn[standard] python-multipart Pillow pydantic
-$COMFYUI_DIR/venv/bin/pip install "diffusers>=0.36.0"
+$COMFYUI_DIR/venv/bin/pip install "diffusers>=0.36.0" "bitsandbytes>=0.41.0" "accelerate>=0.25.0"
 $COMFYUI_DIR/venv/bin/pip install git+https://github.com/huggingface/transformers.git
 
 # Reload systemd
