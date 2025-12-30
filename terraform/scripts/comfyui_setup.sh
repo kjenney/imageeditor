@@ -126,26 +126,23 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
 
-# Create a simple FastAPI wrapper that's compatible with the existing frontend
-echo "Creating FastAPI wrapper for ComfyUI..."
+# Create a FastAPI server that uses diffusers directly with Lightning LoRA
+echo "Creating FastAPI server with diffusers + Lightning..."
 cat > $COMFYUI_DIR/api_wrapper.py << 'API_WRAPPER_EOF'
 #!/usr/bin/env python3
 """
-FastAPI wrapper for ComfyUI with Qwen-Image-Edit-2511-Lightning.
-Provides REST API compatible with the imageeditor frontend.
+FastAPI server for Qwen-Image-Edit-2511 with Lightning LoRA.
+Uses diffusers directly for reliable inference.
 """
 import os
 import io
 import base64
-import json
 import time
-import uuid
 import logging
-import asyncio
 from typing import Optional
-from pathlib import Path
+from contextlib import asynccontextmanager
 
-import httpx
+import torch
 from PIL import Image
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.responses import StreamingResponse, JSONResponse
@@ -160,19 +157,100 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configuration
-COMFYUI_URL = os.getenv("COMFYUI_URL", "http://127.0.0.1:8188")
 COMFYUI_DIR = os.getenv("COMFYUI_DIR", "/opt/comfyui")
-INPUT_DIR = Path(COMFYUI_DIR) / "input"
-OUTPUT_DIR = Path(COMFYUI_DIR) / "output"
+MODEL_DIR = os.path.join(COMFYUI_DIR, "models", "Qwen-Image-Edit-2511")
+LORA_PATH = os.path.join(COMFYUI_DIR, "models", "loras", "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors")
+HF_TOKEN = os.getenv("HF_TOKEN")
 
-# Ensure directories exist
-INPUT_DIR.mkdir(exist_ok=True)
-OUTPUT_DIR.mkdir(exist_ok=True)
+# Global model state
+model_state = {
+    "pipeline": None,
+    "loaded": False
+}
+
+
+def load_model():
+    """Load the Qwen Image Edit pipeline with Lightning LoRA."""
+    from diffusers import QwenImageEditPlusPipeline
+
+    logger.info("Loading Qwen-Image-Edit-2511 pipeline...")
+    logger.info(f"Model dir: {MODEL_DIR}")
+    logger.info(f"LoRA path: {LORA_PATH}")
+    logger.info(f"CUDA available: {torch.cuda.is_available()}")
+
+    if torch.cuda.is_available():
+        logger.info(f"GPU: {torch.cuda.get_device_name(0)}")
+        logger.info(f"VRAM: {torch.cuda.get_device_properties(0).total_memory / (1024**3):.1f} GB")
+
+    # Load from local directory if available, otherwise from HuggingFace
+    if os.path.exists(MODEL_DIR):
+        logger.info(f"Loading from local directory: {MODEL_DIR}")
+        pipeline = QwenImageEditPlusPipeline.from_pretrained(
+            MODEL_DIR,
+            torch_dtype=torch.bfloat16,
+            low_cpu_mem_usage=True,
+        )
+    else:
+        logger.info("Loading from HuggingFace...")
+        pipeline = QwenImageEditPlusPipeline.from_pretrained(
+            "Qwen/Qwen-Image-Edit-2511",
+            torch_dtype=torch.bfloat16,
+            low_cpu_mem_usage=True,
+            token=HF_TOKEN,
+        )
+
+    # Move to GPU
+    pipeline.to("cuda")
+
+    # Load Lightning LoRA for fast 4-step inference
+    if os.path.exists(LORA_PATH):
+        logger.info(f"Loading Lightning LoRA: {LORA_PATH}")
+        pipeline.load_lora_weights(LORA_PATH)
+        logger.info("Lightning LoRA loaded - using 4-step inference")
+    else:
+        logger.warning(f"Lightning LoRA not found at {LORA_PATH}, using default steps")
+
+    # Enable memory optimizations
+    try:
+        pipeline.enable_xformers_memory_efficient_attention()
+        logger.info("Enabled xformers memory-efficient attention")
+    except Exception as e:
+        logger.info(f"xformers not available: {e}")
+
+    model_state["pipeline"] = pipeline
+    model_state["loaded"] = True
+    logger.info("Model loaded successfully!")
+    return pipeline
+
+
+def get_pipeline():
+    """Get or load the pipeline."""
+    if not model_state["loaded"]:
+        load_model()
+    return model_state["pipeline"]
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan handler."""
+    logger.info("Starting up - loading model...")
+    try:
+        load_model()
+    except Exception as e:
+        logger.error(f"Failed to load model: {e}")
+    yield
+    # Cleanup
+    if model_state["pipeline"]:
+        del model_state["pipeline"]
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
 
 app = FastAPI(
     title="Qwen Image Edit API",
-    description="AI-powered image editing using Qwen-Image-Edit-2511-Lightning via ComfyUI",
-    version="2.0.0"
+    description="AI-powered image editing using Qwen-Image-Edit-2511 with Lightning LoRA",
+    version="2.0.0",
+    lifespan=lifespan
 )
 
 # Enable CORS for frontend integration
@@ -190,154 +268,40 @@ class EditRequestBase64(BaseModel):
     image: str
     prompt: str
     negative_prompt: Optional[str] = None
-    num_inference_steps: int = 4  # Lightning uses 4 steps
+    num_inference_steps: int = 4
     guidance_scale: float = 1.0
+    true_cfg_scale: float = 4.0
     seed: Optional[int] = None
-
-
-def create_workflow(image_filename: str, prompt: str, negative_prompt: str = "",
-                    steps: int = 4, seed: int = 0) -> dict:
-    """Create ComfyUI workflow for Qwen image editing with Lightning LoRA."""
-    return {
-        "1": {
-            "class_type": "QwenEditLoader",
-            "inputs": {
-                "model_path": "Qwen-Image-Edit-2511",
-                "precision": "bf16"
-            }
-        },
-        "2": {
-            "class_type": "LoadImage",
-            "inputs": {
-                "image": image_filename
-            }
-        },
-        "3": {
-            "class_type": "QwenEditImageEncode",
-            "inputs": {
-                "model": ["1", 0],
-                "image": ["2", 0]
-            }
-        },
-        "4": {
-            "class_type": "QwenEditEncode",
-            "inputs": {
-                "model": ["1", 0],
-                "prompt": prompt
-            }
-        },
-        "5": {
-            "class_type": "LoraLoaderModelOnly",
-            "inputs": {
-                "lora_name": "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
-                "strength_model": 1.0,
-                "model": ["1", 1]
-            }
-        },
-        "6": {
-            "class_type": "QwenEditSampler",
-            "inputs": {
-                "model": ["5", 0],
-                "positive": ["4", 0],
-                "negative": negative_prompt if negative_prompt else "",
-                "image_embeds": ["3", 0],
-                "latent": ["3", 1],
-                "steps": steps,
-                "cfg": 1.0,
-                "seed": seed,
-                "sampler": "euler",
-                "scheduler": "simple"
-            }
-        },
-        "7": {
-            "class_type": "QwenEditDecode",
-            "inputs": {
-                "model": ["1", 0],
-                "samples": ["6", 0]
-            }
-        },
-        "8": {
-            "class_type": "SaveImage",
-            "inputs": {
-                "filename_prefix": "qwen_edit",
-                "images": ["7", 0]
-            }
-        }
-    }
-
-
-async def wait_for_comfyui():
-    """Wait for ComfyUI to be ready."""
-    async with httpx.AsyncClient() as client:
-        for _ in range(60):
-            try:
-                response = await client.get(f"{COMFYUI_URL}/system_stats")
-                if response.status_code == 200:
-                    return True
-            except Exception:
-                pass
-            await asyncio.sleep(5)
-    return False
-
-
-async def queue_prompt(workflow: dict) -> str:
-    """Queue a prompt in ComfyUI and return the prompt ID."""
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{COMFYUI_URL}/prompt",
-            json={"prompt": workflow}
-        )
-        if response.status_code != 200:
-            raise HTTPException(status_code=500, detail=f"Failed to queue prompt: {response.text}")
-        return response.json()["prompt_id"]
-
-
-async def wait_for_result(prompt_id: str, timeout: int = 600) -> str:
-    """Wait for ComfyUI to complete processing and return output filename."""
-    start_time = time.time()
-    async with httpx.AsyncClient() as client:
-        while time.time() - start_time < timeout:
-            response = await client.get(f"{COMFYUI_URL}/history/{prompt_id}")
-            if response.status_code == 200:
-                history = response.json()
-                if prompt_id in history:
-                    outputs = history[prompt_id].get("outputs", {})
-                    for node_id, node_output in outputs.items():
-                        if "images" in node_output:
-                            return node_output["images"][0]["filename"]
-            await asyncio.sleep(1)
-    raise HTTPException(status_code=504, detail="Timeout waiting for result")
 
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{COMFYUI_URL}/system_stats", timeout=5)
-            comfyui_ready = response.status_code == 200
-    except Exception:
-        comfyui_ready = False
-
     return {
-        "status": "healthy" if comfyui_ready else "degraded",
-        "model_loaded": comfyui_ready,
-        "cuda_available": True,
-        "backend": "comfyui"
+        "status": "healthy" if model_state["loaded"] else "loading",
+        "model_loaded": model_state["loaded"],
+        "cuda_available": torch.cuda.is_available(),
+        "backend": "diffusers-lightning"
     }
 
 
 @app.get("/info")
 async def get_info():
     """Get model and system information."""
+    gpu_name = None
+    gpu_memory = None
+    if torch.cuda.is_available():
+        gpu_name = torch.cuda.get_device_name(0)
+        gpu_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+
     return {
         "model_id": "Qwen/Qwen-Image-Edit-2511",
         "variant": "lightning",
-        "loaded": True,
-        "cuda_available": True,
-        "gpu_name": "NVIDIA GPU",
-        "gpu_memory_gb": None,
-        "backend": "comfyui",
+        "loaded": model_state["loaded"],
+        "cuda_available": torch.cuda.is_available(),
+        "gpu_name": gpu_name,
+        "gpu_memory_gb": gpu_memory,
+        "backend": "diffusers-lightning",
         "inference_steps": 4
     }
 
@@ -349,56 +313,51 @@ async def edit_image(
     negative_prompt: Optional[str] = Form(None),
     num_inference_steps: int = Form(4),
     guidance_scale: float = Form(1.0),
+    true_cfg_scale: float = Form(4.0),
     seed: Optional[int] = Form(None),
 ):
-    """Edit an image using AI via ComfyUI."""
+    """Edit an image using AI."""
     try:
-        # Save input image
-        image_id = str(uuid.uuid4())
-        image_filename = f"{image_id}.png"
-        image_path = INPUT_DIR / image_filename
-
+        # Load image
         image_data = await image.read()
         input_image = Image.open(io.BytesIO(image_data)).convert("RGB")
-        input_image.save(image_path, format="PNG")
-        logger.info(f"Saved input image: {image_path}")
+        logger.info(f"Processing image: {input_image.size}, prompt: {prompt[:50]}...")
 
-        # Create and queue workflow
-        actual_seed = seed if seed is not None else int(time.time() * 1000) % 2**32
-        workflow = create_workflow(
-            image_filename=image_filename,
-            prompt=prompt,
-            negative_prompt=negative_prompt or "",
-            steps=num_inference_steps,
-            seed=actual_seed
-        )
+        # Get pipeline
+        pipeline = get_pipeline()
 
-        prompt_id = await queue_prompt(workflow)
-        logger.info(f"Queued prompt: {prompt_id}")
+        # Set seed
+        generator = None
+        if seed is not None:
+            generator = torch.Generator(device="cuda").manual_seed(seed)
 
-        # Wait for result
-        output_filename = await wait_for_result(prompt_id)
-        output_path = OUTPUT_DIR / output_filename
-        logger.info(f"Got result: {output_path}")
+        # Run inference
+        start_time = time.time()
+        with torch.inference_mode():
+            result = pipeline(
+                prompt=prompt,
+                image=[input_image],
+                negative_prompt=negative_prompt or "",
+                num_inference_steps=num_inference_steps,
+                guidance_scale=guidance_scale,
+                true_cfg_scale=true_cfg_scale,
+                generator=generator,
+            ).images[0]
 
-        # Read and return result
-        with open(output_path, "rb") as f:
-            result_data = f.read()
+        elapsed = time.time() - start_time
+        logger.info(f"Inference completed in {elapsed:.1f}s")
 
-        # Cleanup input file
-        try:
-            image_path.unlink()
-        except Exception:
-            pass
+        # Convert to bytes
+        output_buffer = io.BytesIO()
+        result.save(output_buffer, format="PNG")
+        output_buffer.seek(0)
 
         return StreamingResponse(
-            io.BytesIO(result_data),
+            output_buffer,
             media_type="image/png",
             headers={"Content-Disposition": "attachment; filename=edited_image.png"}
         )
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Error processing image: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -408,52 +367,46 @@ async def edit_image(
 async def edit_image_base64(request: EditRequestBase64):
     """Edit an image using base64 encoding."""
     try:
-        # Decode and save input image
+        # Decode image
         image_data = base64.b64decode(request.image)
-        image_id = str(uuid.uuid4())
-        image_filename = f"{image_id}.png"
-        image_path = INPUT_DIR / image_filename
-
         input_image = Image.open(io.BytesIO(image_data)).convert("RGB")
-        input_image.save(image_path, format="PNG")
-        logger.info(f"Saved base64 input image: {image_path}")
+        logger.info(f"Processing base64 image: {input_image.size}, prompt: {request.prompt[:50]}...")
 
-        # Create and queue workflow
-        actual_seed = request.seed if request.seed is not None else int(time.time() * 1000) % 2**32
-        workflow = create_workflow(
-            image_filename=image_filename,
-            prompt=request.prompt,
-            negative_prompt=request.negative_prompt or "",
-            steps=request.num_inference_steps,
-            seed=actual_seed
-        )
+        # Get pipeline
+        pipeline = get_pipeline()
 
-        prompt_id = await queue_prompt(workflow)
-        logger.info(f"Queued base64 prompt: {prompt_id}")
+        # Set seed
+        generator = None
+        if request.seed is not None:
+            generator = torch.Generator(device="cuda").manual_seed(request.seed)
 
-        # Wait for result
-        output_filename = await wait_for_result(prompt_id)
-        output_path = OUTPUT_DIR / output_filename
-        logger.info(f"Got base64 result: {output_path}")
+        # Run inference
+        start_time = time.time()
+        with torch.inference_mode():
+            result = pipeline(
+                prompt=request.prompt,
+                image=[input_image],
+                negative_prompt=request.negative_prompt or "",
+                num_inference_steps=request.num_inference_steps,
+                guidance_scale=request.guidance_scale,
+                true_cfg_scale=request.true_cfg_scale,
+                generator=generator,
+            ).images[0]
 
-        # Read and encode result
-        with open(output_path, "rb") as f:
-            result_data = f.read()
-        result_base64 = base64.b64encode(result_data).decode()
+        elapsed = time.time() - start_time
+        logger.info(f"Base64 inference completed in {elapsed:.1f}s")
 
-        # Cleanup input file
-        try:
-            image_path.unlink()
-        except Exception:
-            pass
+        # Convert to base64
+        output_buffer = io.BytesIO()
+        result.save(output_buffer, format="PNG")
+        output_buffer.seek(0)
+        result_base64 = base64.b64encode(output_buffer.getvalue()).decode()
 
         return JSONResponse({
             "image": result_base64,
             "format": "png"
         })
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Error processing base64 image: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -462,35 +415,25 @@ async def edit_image_base64(request: EditRequestBase64):
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8000))
-
-    # Wait for ComfyUI to be ready
-    import asyncio
-    logger.info("Waiting for ComfyUI to be ready...")
-    if not asyncio.run(wait_for_comfyui()):
-        logger.error("ComfyUI not ready after 5 minutes")
-    else:
-        logger.info("ComfyUI is ready!")
-
-    logger.info(f"Starting API wrapper on port {port}")
+    logger.info(f"Starting server on port {port}")
     uvicorn.run(app, host="0.0.0.0", port=port)
 API_WRAPPER_EOF
 
-# Create systemd service for API wrapper
-echo "Creating API wrapper systemd service..."
+# Create systemd service for API (diffusers-based, no ComfyUI dependency)
+echo "Creating diffusion API systemd service..."
 cat > /etc/systemd/system/diffusion-api.service << EOF
 [Unit]
-Description=Qwen Image Edit API (ComfyUI wrapper)
-After=comfyui.service
-Requires=comfyui.service
+Description=Qwen Image Edit API (diffusers + Lightning)
+After=network-online.target
 
 [Service]
 Type=simple
 User=root
 WorkingDirectory=$COMFYUI_DIR
-Environment="COMFYUI_URL=http://127.0.0.1:$COMFYUI_PORT"
 Environment="COMFYUI_DIR=$COMFYUI_DIR"
+Environment="HF_TOKEN=$HF_TOKEN"
 Environment="PORT=$API_PORT"
-ExecStartPre=/bin/sleep 30
+Environment="PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512"
 ExecStart=$COMFYUI_DIR/venv/bin/python api_wrapper.py
 Restart=always
 RestartSec=10
@@ -499,38 +442,33 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
 
-# Install httpx for the API wrapper
-$COMFYUI_DIR/venv/bin/pip install httpx
+# Install dependencies for the API
+echo "Installing API dependencies..."
+$COMFYUI_DIR/venv/bin/pip install fastapi uvicorn[standard] python-multipart Pillow pydantic
+$COMFYUI_DIR/venv/bin/pip install "diffusers>=0.36.0"
+$COMFYUI_DIR/venv/bin/pip install git+https://github.com/huggingface/transformers.git
 
 # Reload systemd
 systemctl daemon-reload
 
-# Enable services
-systemctl enable comfyui
+# Enable and start API service (ComfyUI not needed for diffusers approach)
 systemctl enable diffusion-api
 
-# Start services
-echo "Starting ComfyUI..."
-systemctl start comfyui
-
-echo "Waiting for ComfyUI to initialize (60 seconds)..."
-sleep 60
-
-echo "Starting API wrapper..."
+echo "Starting diffusion API..."
 systemctl start diffusion-api
 
-# Health check
-echo "Checking service status..."
-for i in {1..30}; do
+# Health check (model loading takes time)
+echo "Waiting for model to load (this may take several minutes)..."
+for i in {1..60}; do
     if curl -s "http://localhost:$API_PORT/health" | grep -q "healthy"; then
         echo "API is healthy!"
         break
     fi
-    echo "Waiting for API to be ready... ($i/30)"
+    echo "Waiting for API to be ready... ($i/60)"
     sleep 10
 done
 
-echo "=== ComfyUI Setup Complete ==="
-echo "ComfyUI running on port: $COMFYUI_PORT"
+echo "=== Diffusion API Setup Complete ==="
 echo "API running on port: $API_PORT"
+echo "Backend: diffusers + Lightning LoRA"
 echo "Models location: $COMFYUI_DIR/models/"
