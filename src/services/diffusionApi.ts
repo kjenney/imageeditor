@@ -155,7 +155,7 @@ class DiffusionApi {
         image: imageBase64,
         prompt: params.prompt,
         negative_prompt: params.negativePrompt || null,
-        num_inference_steps: params.numInferenceSteps || 25,
+        num_inference_steps: params.numInferenceSteps || 4,
         guidance_scale: params.guidanceScale || 1.0,
         true_cfg_scale: params.trueCfgScale || 4.0,
         seed: params.seed || null,

@@ -94,7 +94,7 @@ resource "aws_instance" "app" {
     delete_on_termination = true
   }
 
-  user_data_base64            = base64encode(templatefile("${path.module}/user_data.sh", {
+  user_data_base64 = base64encode(templatefile("${path.module}/user_data.sh", {
     app_port           = var.app_port
     enable_qwen        = var.enable_qwen_image_edit
     qwen_model_variant = var.qwen_model_variant
@@ -126,7 +126,7 @@ resource "aws_eip" "app" {
 
 # Separate EIP association allows instance replacement without waiting
 resource "aws_eip_association" "app" {
-  instance_id        = aws_instance.app.id
-  allocation_id      = aws_eip.app.id
+  instance_id         = aws_instance.app.id
+  allocation_id       = aws_eip.app.id
   allow_reassociation = true
 }

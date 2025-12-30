@@ -46,44 +46,39 @@ variable "app_port" {
   default     = 80
 }
 
-# Qwen Image Edit Configuration (Diffusion Model)
+# Qwen Image Edit Configuration (ComfyUI + Lightning)
 variable "enable_qwen_image_edit" {
-  description = "Enable Qwen Image Edit diffusion model via FastAPI + Diffusers"
+  description = "Enable Qwen Image Edit via ComfyUI with Lightning variant (fast 4-step inference)"
   type        = bool
   default     = true
 }
 
 variable "qwen_model_variant" {
-  description = "Qwen Image Edit model variant: 'full' (best quality) or 'fp8' (faster, less VRAM)"
+  description = "Model variant (deprecated - now uses Lightning by default)"
   type        = string
-  default     = "full"
-
-  validation {
-    condition     = contains(["full", "fp8"], var.qwen_model_variant)
-    error_message = "qwen_model_variant must be 'full' or 'fp8'"
-  }
+  default     = "lightning"
 }
 
 variable "gpu_instance_type" {
-  description = "GPU instance type for diffusion model (g5.12xlarge recommended for 8-bit quantization)"
+  description = "GPU instance type for ComfyUI (g5.2xlarge or larger recommended)"
   type        = string
-  default     = "g5.12xlarge"
+  default     = "g5.2xlarge"
 }
 
 variable "diffusion_api_port" {
-  description = "Port for FastAPI diffusion model server"
+  description = "Port for the image editing API"
   type        = number
   default     = 8000
 }
 
 variable "qwen_storage_size" {
-  description = "EBS volume size in GB for GPU instance (model is ~40GB, need space for CUDA/Python)"
+  description = "EBS volume size in GB for GPU instance (model files ~40GB)"
   type        = number
   default     = 120
 }
 
 variable "model_preload" {
-  description = "Preload model on startup (true) or lazy load on first request (false)"
+  description = "Preload model on startup (always true with ComfyUI)"
   type        = bool
   default     = true
 }

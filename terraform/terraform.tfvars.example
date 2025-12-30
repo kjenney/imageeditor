@@ -26,34 +26,24 @@ app_port = 80
 # Qwen Image Edit Configuration (Optional)
 # ========================================
 
-# Enable Qwen Image Edit diffusion model
-# When enabled, a GPU instance will be provisioned with FastAPI + Diffusers
-# WARNING: GPU instances are expensive (~$1/hour for g5.2xlarge)
+# Enable Qwen Image Edit with ComfyUI + Lightning variant
+# Uses 4-step inference for fast (~5-15 seconds) image editing
+# WARNING: GPU instances are expensive (~$1.21/hour for g5.2xlarge)
 enable_qwen_image_edit = false
 
-# Model variant:
-#   - "full": Qwen/Qwen-Image-Edit-2511 (~40GB, best quality)
-#   - "fp8":  xms991/Qwen-Image-Edit-2511-fp8-e4m3fn (~20GB, faster, less VRAM)
-qwen_model_variant = "full"
-
-# GPU instance type (g5.12xlarge recommended for reliable 8-bit quantization)
+# GPU instance type (g5.2xlarge works well with Lightning variant)
 # Options:
-#   - g5.xlarge:  A10G 24GB, 4 vCPU, 16GB RAM  (~$1.01/hr) - 4-bit only, low quality
-#   - g5.2xlarge: A10G 24GB, 8 vCPU, 32GB RAM  (~$1.21/hr) - 4-bit only, low quality
-#   - g5.4xlarge: A10G 24GB, 16 vCPU, 64GB RAM (~$1.62/hr) - may OOM with 8-bit
-#   - g5.12xlarge: 4x A10G 96GB, 48 vCPU, 192GB RAM (~$5.67/hr) [Recommended]
-gpu_instance_type = "g5.12xlarge"
+#   - g5.xlarge:  A10G 24GB, 4 vCPU, 16GB RAM  (~$1.01/hr) - may work
+#   - g5.2xlarge: A10G 24GB, 8 vCPU, 32GB RAM  (~$1.21/hr) [Recommended]
+#   - g5.4xlarge: A10G 24GB, 16 vCPU, 64GB RAM (~$1.62/hr) - more headroom
+gpu_instance_type = "g5.2xlarge"
 
-# Port for FastAPI diffusion server
+# Port for image editing API
 diffusion_api_port = 8000
 
 # EBS volume size for GPU instance (in GB)
-# Model is ~40GB, plus CUDA/Python dependencies
+# Model files ~40GB, plus ComfyUI/CUDA/Python dependencies
 qwen_storage_size = 120
-
-# Preload model on startup (true) or lazy load on first request (false)
-# Preloading adds ~5-10 minutes to startup but faster first request
-model_preload = true
 
 # HuggingFace token (optional, for gated models)
 # huggingface_token = "hf_xxxxxxxxxxxx"

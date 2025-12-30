@@ -28,7 +28,7 @@ export function AIEditPanel({ onEdit, isProcessing, isAvailable, error }: AIEdit
   const [prompt, setPrompt] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [negativePrompt, setNegativePrompt] = useState('');
-  const [numInferenceSteps, setNumInferenceSteps] = useState(25);
+  const [numInferenceSteps, setNumInferenceSteps] = useState(4);
   const [seed, setSeed] = useState<string>('');
 
   const handleSubmit = useCallback(
@@ -136,14 +136,14 @@ export function AIEditPanel({ onEdit, isProcessing, isAvailable, error }: AIEdit
               Quality steps: {numInferenceSteps}
               <input
                 type="range"
-                min="20"
-                max="50"
+                min="4"
+                max="20"
                 value={numInferenceSteps}
                 onChange={(e) => setNumInferenceSteps(Number(e.target.value))}
                 className="brush-size-slider"
                 disabled={isProcessing}
               />
-              <span className="ai-hint">Higher = better quality, slower</span>
+              <span className="ai-hint">Lightning model: 4 steps (fast), up to 20 for quality</span>
             </label>
 
             <label className="setting-label">
@@ -189,7 +189,7 @@ export function AIEditPanel({ onEdit, isProcessing, isAvailable, error }: AIEdit
         </button>
 
         {isProcessing && (
-          <p className="ai-processing-hint">This may take 10-30 seconds depending on the edit...</p>
+          <p className="ai-processing-hint">Lightning mode: typically 5-15 seconds...</p>
         )}
       </form>
     </div>

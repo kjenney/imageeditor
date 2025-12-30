@@ -83,10 +83,10 @@ systemctl start nginx
 echo "imageeditor setup complete!"
 
 # ========================================
-# Qwen Image Edit Setup (via FastAPI + Diffusers)
+# Qwen Image Edit Setup (via ComfyUI + Lightning)
 # ========================================
 if [ "$ENABLE_QWEN" = "true" ]; then
-    echo "Setting up Qwen Image Edit diffusion model..."
+    echo "Setting up Qwen Image Edit with ComfyUI + Lightning variant..."
 
     # Verify NVIDIA drivers (Deep Learning AMI should have them)
     echo "Verifying NVIDIA drivers..."
@@ -95,93 +95,21 @@ if [ "$ENABLE_QWEN" = "true" ]; then
         exit 1
     fi
 
-    # Install Python 3.11 (required for latest transformers)
-    echo "Installing Python 3.11..."
-    dnf install -y python3.11 python3.11-pip python3.11-devel
+    # Export environment variables for the setup script
+    export HF_TOKEN="$HF_TOKEN"
+    export DIFFUSION_PORT="$DIFFUSION_PORT"
 
-    # Create application directory
-    mkdir -p /opt/diffusion-server
-    cd /opt/diffusion-server
+    # Download and run the ComfyUI setup script
+    echo "Downloading ComfyUI setup script..."
+    curl -fsSL -H "Cache-Control: no-cache" "https://raw.githubusercontent.com/kjenney/imageeditor/main/terraform/scripts/comfyui_setup.sh?$(date +%s)" -o /tmp/comfyui_setup.sh
+    chmod +x /tmp/comfyui_setup.sh
 
-    # Create virtual environment with Python 3.11
-    echo "Creating Python 3.11 virtual environment..."
-    python3.11 -m venv venv
-    source venv/bin/activate
+    echo "Running ComfyUI setup..."
+    /tmp/comfyui_setup.sh
 
-    # Upgrade pip
-    pip install --upgrade pip
-
-    # Install PyTorch with CUDA support
-    echo "Installing PyTorch with CUDA support..."
-    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-
-    # Download requirements.txt from GitHub (using API to avoid CDN cache)
-    echo "Downloading requirements.txt..."
-    curl -fsSL -H "Cache-Control: no-cache" "https://raw.githubusercontent.com/kjenney/imageeditor/main/terraform/scripts/requirements.txt?$(date +%s)" -o requirements.txt
-    echo "Requirements file contents:"
-    cat requirements.txt
-
-    # Install requirements (--upgrade ensures we get the required versions)
-    echo "Installing Python dependencies..."
-    pip install --upgrade -r requirements.txt
-
-    # Install transformers from source for Qwen2_5_VL support
-    echo "Installing transformers from source..."
-    pip install --upgrade git+https://github.com/huggingface/transformers.git
-    echo "Installed transformers version: $(pip show transformers | grep Version)"
-    echo "Installed diffusers version: $(pip show diffusers | grep Version)"
-
-    # Download the FastAPI server script from GitHub (using cache-busting)
-    echo "Deploying FastAPI server..."
-    curl -fsSL -H "Cache-Control: no-cache" "https://raw.githubusercontent.com/kjenney/imageeditor/main/terraform/scripts/diffusion_server.py?$(date +%s)" -o server.py
-    chmod +x server.py
-
-    # Create systemd service
-    cat > /etc/systemd/system/diffusion-server.service << EOF
-[Unit]
-Description=Qwen Image Edit Diffusion Server
-After=network-online.target
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/opt/diffusion-server
-Environment="MODEL_VARIANT=$MODEL_VARIANT"
-Environment="MODEL_PRELOAD=$MODEL_PRELOAD"
-Environment="HF_TOKEN=$HF_TOKEN"
-Environment="PORT=$DIFFUSION_PORT"
-Environment="PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512"
-ExecStart=/opt/diffusion-server/venv/bin/python server.py
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    # Reload systemd and start service
-    systemctl daemon-reload
-    systemctl enable diffusion-server
-    systemctl start diffusion-server
-
-    # Wait for service to start (model loading takes time)
-    echo "Waiting for diffusion server to start (this may take several minutes for model download)..."
-    sleep 60
-
-    # Health check loop
-    echo "Checking server health..."
-    for i in {1..60}; do
-        if curl -s "http://localhost:$DIFFUSION_PORT/health" | grep -q "healthy"; then
-            echo "Diffusion server is healthy!"
-            break
-        fi
-        echo "Waiting for server to be ready... ($i/60)"
-        sleep 30
-    done
-
-    echo "Qwen Image Edit setup complete!"
+    echo "Qwen Image Edit (ComfyUI + Lightning) setup complete!"
     echo "API available at http://0.0.0.0:$DIFFUSION_PORT"
-    echo "Model variant: $MODEL_VARIANT"
+    echo "Using Lightning variant for fast 4-step inference"
 fi
 
 echo "All setup complete!"
