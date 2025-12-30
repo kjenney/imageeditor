@@ -79,10 +79,24 @@ Or use the AWS Console: EC2 → Select instance → Connect → Session Manager 
 | `aws_region` | AWS region | `us-east-1` |
 | `instance_type` | EC2 instance type (non-GPU) | `t3.micro` |
 | `environment` | Environment name | `dev` |
-| `enable_qwen_image_edit` | Enable Qwen Image Edit diffusion model | `false` |
-| `qwen_model_variant` | Model variant: `full` or `fp8` | `full` |
+| `git_branch` | Git branch to deploy | `main` |
+| `enable_qwen_image_edit` | Enable Qwen Image Edit (ComfyUI + Lightning) | `false` |
 | `gpu_instance_type` | GPU instance type | `g5.2xlarge` |
 | `diffusion_api_port` | Diffusion API port | `8000` |
+
+### Deploying a Branch
+
+To test changes from a feature branch before merging:
+
+```hcl
+git_branch = "feature/my-branch"
+```
+
+Or via command line:
+
+```bash
+terraform apply -var="git_branch=feature/comfyui-api"
+```
 
 ## Architecture
 
@@ -113,23 +127,22 @@ Or use the AWS Console: EC2 → Select instance → Connect → Session Manager 
 
 ## Qwen Image Edit (AI Feature)
 
-Enable AI-powered image editing with the Qwen-Image-Edit-2511 diffusion model.
+Enable AI-powered image editing with Qwen-Image-Edit-2511 via ComfyUI and the Lightning variant for fast 4-step inference.
 
 ### Enable AI Image Editing
 
 ```hcl
 enable_qwen_image_edit = true
 gpu_instance_type      = "g5.2xlarge"
-qwen_model_variant     = "full"
 ```
 
 ### GPU Instance Options
 
-| Instance | GPU | VRAM | vCPU | RAM | Cost/hr |
-|----------|-----|------|------|-----|---------|
-| g5.xlarge | A10G | 24GB | 4 | 16GB | ~$1.01 |
-| g5.2xlarge | A10G | 24GB | 8 | 32GB | ~$1.21 |
-| g5.4xlarge | A10G | 24GB | 16 | 64GB | ~$1.62 |
+| Instance | GPU | VRAM | vCPU | RAM | Cost/hr | Notes |
+|----------|-----|------|------|-----|---------|-------|
+| g5.xlarge | A10G | 24GB | 4 | 16GB | ~$1.01 | May work |
+| g5.2xlarge | A10G | 24GB | 8 | 32GB | ~$1.21 | Recommended |
+| g5.4xlarge | A10G | 24GB | 16 | 64GB | ~$1.62 | More headroom |
 
 ### API Usage
 
@@ -142,17 +155,21 @@ terraform output diffusion_api_url
 # Health check
 curl http://<ip>:8000/health
 
-# Edit an image
+# Edit an image (4-step Lightning inference)
 curl -X POST "http://<ip>:8000/edit" \
   -F "image=@input.jpg" \
   -F "prompt=Add a sunset background" \
+  -F "num_inference_steps=4" \
   -o output.png
 ```
 
-### Model Variants
+### Performance
 
-- **full**: Best quality, ~40GB download, requires 24GB VRAM
-- **fp8**: Faster inference, ~20GB download, reduced VRAM usage
+The Lightning variant uses 4-step inference, providing:
+
+- **~5-15 second** processing time (vs 2-12 minutes with full model)
+- **Lower GPU requirements** (g5.2xlarge sufficient)
+- **Same API interface** as the frontend expects
 
 For detailed usage instructions, prompt examples, and best practices, see the [AI Image Editing Guide](../features/ai-image-editing.md).
 
@@ -222,8 +239,10 @@ terraform destroy
 
 ### Diffusion Server Issues
 
-- Check service status: `sudo systemctl status diffusion-server`
-- View logs: `SYSTEMD_LESS=FRXMK sudo journalctl -u diffusion-server -f`
+- Check ComfyUI status: `sudo systemctl status comfyui`
+- Check API wrapper status: `sudo systemctl status diffusion-api`
+- View ComfyUI logs: `SYSTEMD_LESS=FRXMK sudo journalctl -u comfyui -f`
+- View API logs: `SYSTEMD_LESS=FRXMK sudo journalctl -u diffusion-api -f`
 - Check GPU availability: `nvidia-smi`
 - Verify model loaded: `curl http://localhost:8000/info`
 - Model download can take 10-30 minutes on first startup

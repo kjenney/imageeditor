@@ -22,6 +22,10 @@ instance_type = "t3.micro"
 # Application port (default: 80)
 app_port = 80
 
+# Git branch to deploy (default: main)
+# Useful for testing feature branches before merging
+# git_branch = "feature/my-branch"
+
 # ========================================
 # Qwen Image Edit Configuration (Optional)
 # ========================================

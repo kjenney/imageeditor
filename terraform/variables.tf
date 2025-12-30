@@ -46,6 +46,12 @@ variable "app_port" {
   default     = 80
 }
 
+variable "git_branch" {
+  description = "Git branch to deploy from (default: main)"
+  type        = string
+  default     = "main"
+}
+
 # Qwen Image Edit Configuration (ComfyUI + Lightning)
 variable "enable_qwen_image_edit" {
   description = "Enable Qwen Image Edit via ComfyUI with Lightning variant (fast 4-step inference)"

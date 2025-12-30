@@ -12,6 +12,7 @@ MODEL_VARIANT="${qwen_model_variant}"
 DIFFUSION_PORT="${diffusion_api_port}"
 MODEL_PRELOAD="${model_preload}"
 HF_TOKEN="${huggingface_token}"
+GIT_BRANCH="${git_branch}"
 
 # Update system packages
 dnf update -y
@@ -29,8 +30,9 @@ dnf install -y git
 mkdir -p /var/www/imageeditor
 cd /var/www/imageeditor
 
-# Clone the repository
-git clone https://github.com/kjenney/imageeditor.git .
+# Clone the repository (specific branch)
+echo "Cloning branch: $GIT_BRANCH"
+git clone --branch "$GIT_BRANCH" --single-branch https://github.com/kjenney/imageeditor.git .
 
 # Install dependencies and build
 npm ci --production=false
@@ -100,8 +102,8 @@ if [ "$ENABLE_QWEN" = "true" ]; then
     export DIFFUSION_PORT="$DIFFUSION_PORT"
 
     # Download and run the ComfyUI setup script
-    echo "Downloading ComfyUI setup script..."
-    curl -fsSL -H "Cache-Control: no-cache" "https://raw.githubusercontent.com/kjenney/imageeditor/main/terraform/scripts/comfyui_setup.sh?$(date +%s)" -o /tmp/comfyui_setup.sh
+    echo "Downloading ComfyUI setup script from branch: $GIT_BRANCH..."
+    curl -fsSL -H "Cache-Control: no-cache" "https://raw.githubusercontent.com/kjenney/imageeditor/$GIT_BRANCH/terraform/scripts/comfyui_setup.sh?$(date +%s)" -o /tmp/comfyui_setup.sh
     chmod +x /tmp/comfyui_setup.sh
 
     echo "Running ComfyUI setup..."

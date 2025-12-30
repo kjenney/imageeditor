@@ -101,6 +101,7 @@ resource "aws_instance" "app" {
     diffusion_api_port = var.diffusion_api_port
     model_preload      = var.model_preload
     huggingface_token  = var.huggingface_token
+    git_branch         = var.git_branch
   }))
   user_data_replace_on_change = true
 
