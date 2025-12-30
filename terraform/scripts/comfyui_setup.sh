@@ -74,27 +74,17 @@ mkdir -p models/clip
 mkdir -p input
 mkdir -p output
 
-# Download models from Hugging Face
-echo "Downloading Qwen-Image-Edit-2511-Lightning models..."
+# Download Lightning LoRA only (base model loads from HuggingFace at runtime)
+echo "Downloading Lightning LoRA..."
 
-# Download the full model files needed for QwenEditUtils
 python3.11 << 'DOWNLOAD_EOF'
 import os
-from huggingface_hub import hf_hub_download, snapshot_download
+from huggingface_hub import hf_hub_download
 
 HF_TOKEN = os.environ.get('HF_TOKEN')
 
-# Download the base Qwen model files
-print("Downloading Qwen-Image-Edit-2511 model files...")
-snapshot_download(
-    repo_id="Qwen/Qwen-Image-Edit-2511",
-    local_dir="models/Qwen-Image-Edit-2511",
-    token=HF_TOKEN,
-    ignore_patterns=["*.md", "*.txt"]
-)
-
 # Download Lightning LoRA for 4-step inference
-print("Downloading Lightning LoRA...")
+print("Downloading Lightning LoRA for fast inference...")
 hf_hub_download(
     repo_id="lightx2v/Qwen-Image-Edit-2511-Lightning",
     filename="Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
@@ -102,7 +92,8 @@ hf_hub_download(
     token=HF_TOKEN
 )
 
-print("All models downloaded successfully!")
+print("Lightning LoRA downloaded!")
+print("Note: Base model will be downloaded from HuggingFace on first API request")
 DOWNLOAD_EOF
 
 # Create systemd service for ComfyUI
@@ -174,7 +165,6 @@ def load_model():
     from diffusers import QwenImageEditPlusPipeline
 
     logger.info("Loading Qwen-Image-Edit-2511 pipeline...")
-    logger.info(f"Model dir: {MODEL_DIR}")
     logger.info(f"LoRA path: {LORA_PATH}")
     logger.info(f"CUDA available: {torch.cuda.is_available()}")
 
@@ -182,22 +172,14 @@ def load_model():
         logger.info(f"GPU: {torch.cuda.get_device_name(0)}")
         logger.info(f"VRAM: {torch.cuda.get_device_properties(0).total_memory / (1024**3):.1f} GB")
 
-    # Load from local directory if available, otherwise from HuggingFace
-    if os.path.exists(MODEL_DIR):
-        logger.info(f"Loading from local directory: {MODEL_DIR}")
-        pipeline = QwenImageEditPlusPipeline.from_pretrained(
-            MODEL_DIR,
-            torch_dtype=torch.bfloat16,
-            low_cpu_mem_usage=True,
-        )
-    else:
-        logger.info("Loading from HuggingFace...")
-        pipeline = QwenImageEditPlusPipeline.from_pretrained(
-            "Qwen/Qwen-Image-Edit-2511",
-            torch_dtype=torch.bfloat16,
-            low_cpu_mem_usage=True,
-            token=HF_TOKEN,
-        )
+    # Always load from HuggingFace to ensure proper tokenizer loading
+    logger.info("Loading from HuggingFace: Qwen/Qwen-Image-Edit-2511")
+    pipeline = QwenImageEditPlusPipeline.from_pretrained(
+        "Qwen/Qwen-Image-Edit-2511",
+        torch_dtype=torch.bfloat16,
+        low_cpu_mem_usage=True,
+        token=HF_TOKEN,
+    )
 
     # Move to GPU
     pipeline.to("cuda")
